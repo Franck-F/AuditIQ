@@ -1,0 +1,36 @@
+name: Backend tests
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.11]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install minimal dependencies for tests
+        working-directory: ./backend
+        run: |
+          python -m pip install --upgrade pip
+          # install only what's needed to run unit tests (avoid heavy native deps in CI)
+          pip install fastapi pytest httpx
+          # install ruff for linting
+          pip install ruff
+      - name: Lint (ruff)
+        working-directory: ./backend
+        run: |
+          echo "Running ruff lint..."
+          ruff check .
+      - name: Run tests
+        working-directory: ./backend
+        run: pytest -q
