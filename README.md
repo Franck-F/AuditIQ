@@ -1,7 +1,7 @@
 
 # AuditIQ
 
-![AuditIQ logo](https://raw.githubusercontent.com/Franck-F/AuditIQ/master/frontend/public/next.svg)
+![AuditIQ logo](https://raw.githubusercontent.com/Franck-F/AuditIQ/master/frontend/public/assets/logo%20audiot-iq%20big%20without%20bg.png.png)
 
 Build Real-Time Fairness & Audit Pipelines for ML systems — backend (FastAPI) and frontend (Next.js).
 
