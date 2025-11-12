@@ -2,6 +2,13 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "./db";
 import * as schema from "./db/schema";
+import clsx from "clsx";
+import { twMerge } from "tailwind-merge";
+
+/** Utility to merge class names and resolve Tailwind conflicts. */
+export function cn(...inputs: Array<unknown>) {
+  return twMerge(clsx(...(inputs as any)));
+}
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
