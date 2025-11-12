@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   title: "AuditIQ - Fairness Audit Platform",
   description: "Auditez la fairness de vos systèmes d'IA en conformité AI Act",
   icons: {
-    icon: "/assets/logo%20audiot-iq%20small.png",
+    icon: "/assets/logo-auditiq-small.png",
   },
 };
 
@@ -27,7 +27,7 @@ export default function RootLayout({
           <div className="mx-auto max-w-6xl px-4 flex items-center gap-3">
             <Link href="/" className="flex items-center gap-3">
               <Image
-                src="/assets/logo audiot-iq small.png"
+                src="/assets/logo-auditiq-small.png"
                 alt="AuditIQ"
                 width={40}
                 height={40}

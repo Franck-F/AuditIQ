@@ -7,7 +7,7 @@ export default function SignInPage() {
       <div className="w-full max-w-md space-y-4">
         <div className="flex justify-center">
           <img
-            src="/assets/logo audiot-iq big without bg.png.png"
+            src="/assets/logo-auditiq-big.png"
             alt="AuditIQ"
             className="h-20 w-auto mx-auto"
           />
