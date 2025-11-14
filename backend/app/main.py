@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.api.routes import audit, health
+from app.api.routes import health
+import logging
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -18,7 +19,13 @@ app.add_middleware(
 )
 
 app.include_router(health.router, prefix=settings.API_V1_STR, tags=["health"])
-app.include_router(audit.router, prefix=f"{settings.API_V1_STR}/audit", tags=["audit"])
+
+try:
+    from app.api.routes import audit
+
+    app.include_router(audit.router, prefix=f"{settings.API_V1_STR}/audit", tags=["audit"])
+except Exception as e:
+    logging.warning("Audit routes not loaded (missing deps?): %s", e)
 
 @app.get("/")
 def root():
