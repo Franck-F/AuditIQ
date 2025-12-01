@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { Sidebar } from '@/components/dashboard/sidebar'
 import { DashboardHeader } from '@/components/dashboard/header'
 import { Button } from '@/components/ui/button'
@@ -7,8 +8,29 @@ import { Card } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Download, AlertTriangle, CheckCircle2, TrendingUp, TrendingDown, BarChart3, Users, Target, Sparkles } from 'lucide-react'
+import { auditService } from '@/services/auditService'
 
-export default function AuditDetailPage() {
+export default function AuditDetailPage({ params }: { params: { id: string } }) {
+  const [audit, setAudit] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchAudit = async () => {
+      try {
+        const data = await auditService.getById(parseInt(params.id))
+        setAudit(data)
+      } catch (error) {
+        console.error('Failed to fetch audit:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchAudit()
+  }, [params.id])
+
+  if (loading) return <div className="p-6">Chargement...</div>
+  if (!audit) return <div className="p-6">Audit non trouvé</div>
+
   return (
     <div className="flex min-h-screen">
       <Sidebar />
@@ -19,14 +41,16 @@ export default function AuditDetailPage() {
           <div className="flex items-start justify-between">
             <div className="space-y-2">
               <div className="flex items-center gap-3">
-                <h1 className="text-3xl font-bold tracking-tight">Système de scoring crédit</h1>
-                <Badge variant="destructive" className="gap-1">
-                  <AlertTriangle className="h-3 w-3" />
-                  Biais critiques
-                </Badge>
+                <h1 className="text-3xl font-bold tracking-tight">{audit.name}</h1>
+                {audit.score && audit.score < 80 && (
+                  <Badge variant="destructive" className="gap-1">
+                    <AlertTriangle className="h-3 w-3" />
+                    Biais critiques
+                  </Badge>
+                )}
               </div>
               <p className="text-muted-foreground">
-                Audit réalisé le 17 janvier 2025 - Dernière mise à jour il y a 2 heures
+                Audit réalisé le {new Date(audit.created_at).toLocaleDateString()}
               </p>
             </div>
             <div className="flex gap-2">

@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { Navbar } from '@/components/navbar'
 import { Toaster } from '@/components/ui/toaster'
+import { FloatingAiAssistant } from '@/components/glowing-ai-chat-assistant'
 import './globals.css'
 
 const _geist = Geist({ subsets: ["latin"] });
@@ -31,6 +32,7 @@ export default function RootLayout({
         <Navbar />
         {children}
         <Toaster />
+        <FloatingAiAssistant />
         <Analytics />
       </body>
     </html>

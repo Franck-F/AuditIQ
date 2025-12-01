@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { Sidebar } from '@/components/dashboard/sidebar'
 import { DashboardHeader } from '@/components/dashboard/header'
 import { Button } from '@/components/ui/button'
@@ -7,8 +8,21 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Download, FileText, Shield, Eye, Calendar, Plus } from 'lucide-react'
+import { reportService } from '@/services/reportService'
 
 export default function ReportsPage() {
+  const [reports, setReports] = useState<any[]>([])
+  const [loading, setLoading] = useState(false) // Initially false as we don't have a list endpoint yet
+
+  const handleGenerate = async (auditId: number) => {
+    try {
+      await reportService.generate(auditId)
+      // Refresh list or show notification
+    } catch (error) {
+      console.error('Failed to generate report:', error)
+    }
+  }
+
   return (
     <div className="flex min-h-screen">
       <Sidebar />
@@ -89,34 +103,12 @@ export default function ReportsPage() {
             </TabsList>
 
             <TabsContent value="generated" className="space-y-4">
-              <ReportCard
-                title="Rapport AI Act - Système de scoring crédit"
-                type="AI Act Article 10"
-                date="17 janvier 2025"
-                size="2.4 MB"
-                status="ready"
-              />
-              <ReportCard
-                title="Rapport RGPD - Tri de CV automatisé"
-                type="RGPD Article 22"
-                date="15 janvier 2025"
-                size="1.8 MB"
-                status="ready"
-              />
-              <ReportCard
-                title="Rapport exécutif - Q4 2024"
-                type="Executive Summary"
-                date="10 janvier 2025"
-                size="956 KB"
-                status="ready"
-              />
-              <ReportCard
-                title="Rapport technique - Segmentation clients"
-                type="Rapport technique détaillé"
-                date="8 janvier 2025"
-                size="3.2 MB"
-                status="ready"
-              />
+              {/* TODO: Fetch real reports list from API */}
+              <div className="text-center py-8 text-muted-foreground">
+                Fonctionnalité de liste des rapports en cours d'intégration.
+                <br />
+                Veuillez utiliser la page d'un audit spécifique pour générer son rapport.
+              </div>
             </TabsContent>
 
             <TabsContent value="scheduled" className="space-y-4">

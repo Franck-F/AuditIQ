@@ -3,5 +3,5 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  return <>{children}</>
+  return <div className="pt-28">{children}</div>
 }

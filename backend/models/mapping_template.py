@@ -2,20 +2,18 @@
 Modèle pour les templates de mapping réutilisables
 F2.3.4 & F2.3.5: Mapping colonnes personnalisé et templates réutilisables
 """
-from sqlalchemy import Column, String, Integer, DateTime, Text, JSON, ForeignKey, func
+from sqlalchemy import Column, Integer, String, Text, JSON, DateTime, ForeignKey, func
 from sqlalchemy.orm import relationship
 from db import Base
 
-
 class MappingTemplate(Base):
-    """Template de mapping réutilisable pour standardiser les colonnes"""
     __tablename__ = 'mapping_templates'
-    
+    __table_args__ = {'extend_existing': True}
+
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
-    
-    # Identification
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=True) # Null for system templates
     name = Column(String, nullable=False)
+    
     description = Column(Text, nullable=True)
     use_case = Column(String, nullable=True)  # recruitment, scoring, etc.
     

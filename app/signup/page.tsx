@@ -6,11 +6,10 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Logo } from '@/components/ui/logo'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { Eye, EyeOff, CheckCircle, Check } from 'lucide-react'
+import { Eye, EyeOff, CheckCircle, Check, Sparkles, Mail } from 'lucide-react'
+import { AnimatedCharacters } from '@/components/animated-characters'
 
 export default function SignupPage() {
   const router = useRouter()
@@ -36,6 +35,9 @@ export default function SignupPage() {
   
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  
+  // Animation state
+  const [isTyping, setIsTyping] = useState(false)
 
   // Validation du mot de passe
   const validatePassword = (pwd: string) => {
@@ -106,7 +108,7 @@ export default function SignupPage() {
     }
 
     try {
-      const res = await fetch(`${API_URL}/api/auth/register`, {
+      const res = await fetch(`${API_URL}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -151,12 +153,55 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left Side - Form - Scrollable */}
-      <div className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-12 overflow-y-auto">
+    <div className="min-h-screen grid lg:grid-cols-2">
+      {/* Left Content Section - Animated Characters */}
+      <div className="relative hidden lg:flex flex-col justify-between bg-gradient-to-br from-gray-50 via-gray-100 to-gray-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-12 text-foreground overflow-hidden fixed h-screen">
+        <div className="relative z-20">
+          <div className="flex items-center gap-2 text-lg font-semibold">
+            <div className="size-8 rounded-lg bg-primary-foreground/10 backdrop-blur-sm flex items-center justify-center">
+              <Sparkles className="size-4" />
+            </div>
+            <span>Audit-IQ</span>
+          </div>
+        </div>
+
+        <div className="relative z-20 flex items-end justify-center h-[500px]">
+          {/* Cartoon Characters */}
+          <AnimatedCharacters 
+            isTyping={isTyping} 
+            passwordLength={password.length} 
+            showPassword={showPassword} 
+          />
+        </div>
+
+        <div className="relative z-20 flex items-center gap-8 text-sm text-primary-foreground/60">
+          <Link href="/privacy" className="hover:text-primary-foreground transition-colors">
+            Privacy Policy
+          </Link>
+          <Link href="/terms" className="hover:text-primary-foreground transition-colors">
+            Terms of Service
+          </Link>
+          <Link href="/contact" className="hover:text-primary-foreground transition-colors">
+            Contact
+          </Link>
+        </div>
+
+        {/* Decorative elements */}
+        <div className="absolute inset-0 bg-grid-white/[0.05] bg-[size:20px_20px]" />
+        <div className="absolute top-1/4 right-1/4 size-64 bg-primary-foreground/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 left-1/4 size-96 bg-primary-foreground/5 rounded-full blur-3xl" />
+      </div>
+
+      {/* Right Side - Form - Scrollable */}
+      <div className="flex items-center justify-center p-8 bg-background overflow-y-auto h-screen">
         <div className="w-full max-w-md space-y-8">
           <div className="text-center space-y-2">
-            <Logo className="justify-center mb-6" />
+            <div className="lg:hidden flex items-center justify-center gap-2 text-lg font-semibold mb-6">
+              <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                <Sparkles className="size-4 text-primary" />
+              </div>
+              <span>Audit-IQ</span>
+            </div>
             <h1 className="text-3xl font-bold tracking-tight">
               {currentStep === 1 ? 'Créez votre compte' : 'Choisissez votre plan'}
             </h1>
@@ -177,6 +222,8 @@ export default function SignupPage() {
                   id="firstName"
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
+                  onFocus={() => setIsTyping(true)}
+                  onBlur={() => setIsTyping(false)}
                   placeholder="Jean"
                   className="h-11"
                 />
@@ -187,6 +234,8 @@ export default function SignupPage() {
                   id="lastName"
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
+                  onFocus={() => setIsTyping(true)}
+                  onBlur={() => setIsTyping(false)}
                   placeholder="Dupont"
                   className="h-11"
                 />
@@ -200,6 +249,8 @@ export default function SignupPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                onFocus={() => setIsTyping(true)}
+                onBlur={() => setIsTyping(false)}
                 placeholder="vous@entreprise.com"
                 className="h-11"
               />
@@ -211,6 +262,8 @@ export default function SignupPage() {
                 id="company"
                 value={company}
                 onChange={(e) => setCompany(e.target.value)}
+                onFocus={() => setIsTyping(true)}
+                onBlur={() => setIsTyping(false)}
                 placeholder="Votre Entreprise SAS"
                 className="h-11"
               />
@@ -257,6 +310,8 @@ export default function SignupPage() {
                 id="siret"
                 value={siret}
                 onChange={(e) => setSiret(e.target.value)}
+                onFocus={() => setIsTyping(true)}
+                onBlur={() => setIsTyping(false)}
                 placeholder="123 456 789 00012"
                 className="h-11"
               />
@@ -268,6 +323,8 @@ export default function SignupPage() {
                 id="address"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
+                onFocus={() => setIsTyping(true)}
+                onBlur={() => setIsTyping(false)}
                 placeholder="123 rue de la République, 75001 Paris"
                 className="h-11"
               />
@@ -279,6 +336,8 @@ export default function SignupPage() {
                 id="dpo"
                 value={dpoContact}
                 onChange={(e) => setDpoContact(e.target.value)}
+                onFocus={() => setIsTyping(true)}
+                onBlur={() => setIsTyping(false)}
                 placeholder="dpo@entreprise.com"
                 className="h-11"
               />
@@ -293,6 +352,8 @@ export default function SignupPage() {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  onFocus={() => setIsTyping(true)}
+                  onBlur={() => setIsTyping(false)}
                   placeholder="Minimum 8 caractères"
                   className="h-11 pr-10"
                   required
@@ -533,25 +594,7 @@ export default function SignupPage() {
 
               <div className="grid grid-cols-3 gap-3">
                 <Button variant="outline" className="h-11" type="button">
-                  <img 
-                    src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-iX9UGe131WleCUasf7qjg2thc6Wi6s.png" 
-                    alt="Google" 
-                    className="h-5 w-auto"
-                  />
-                </Button>
-                <Button variant="outline" className="h-11" type="button">
-                  <img 
-                    src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-TXyB1H5UL38Cd2ucnrBLnkF3XEd3fJ.png" 
-                    alt="Microsoft" 
-                    className="h-5 w-auto"
-                  />
-                </Button>
-                <Button variant="outline" className="h-11" type="button">
-                  <img 
-                    src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-GLZgyggMq90d5POLFrkYrgRtMSoZ4L.png" 
-                    alt="AWS" 
-                    className="h-5 w-auto"
-                  />
+                  <Mail className="h-5 w-auto" />
                 </Button>
               </div>
             </>
@@ -570,61 +613,6 @@ export default function SignupPage() {
             </p>
           </div>
         </div>
-      </div>
-
-      {/* Right Side - Benefits - Fixed and centered */}
-      <div className="hidden lg:flex lg:flex-1 bg-gradient-to-br from-secondary/20 via-primary/20 to-background relative">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,rgba(75,195,215,0.1),transparent_50%)]" />
-        <div className="relative flex flex-col justify-center p-12 space-y-8 sticky top-0 h-screen overflow-y-auto">
-          <div className="space-y-4">
-            <h2 className="text-3xl font-bold">Pourquoi Audit-IQ ?</h2>
-            <p className="text-muted-foreground text-lg">
-              La solution complète pour garantir l'équité de vos algorithmes
-            </p>
-          </div>
-          
-          <div className="space-y-6">
-            <BenefitItem 
-              icon="✓"
-              title="Conformité garantie"
-              description="Rapports AI Act et RGPD automatiques"
-            />
-            <BenefitItem 
-              icon="✓"
-              title="Détection avancée"
-              description="8+ métriques de fairness et analyse intersectionnelle"
-            />
-            <BenefitItem 
-              icon="✓"
-              title="Recommandations IA"
-              description="Suggestions de mitigation personnalisées"
-            />
-            <BenefitItem 
-              icon="✓"
-              title="Sécurité maximale"
-              description="Hébergement UE, chiffrement AES-256"
-            />
-            <BenefitItem 
-              icon="✓"
-              title="Support dédié"
-              description="Onboarding personnalisé et documentation complète"
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function BenefitItem({ icon, title, description }: { icon: string; title: string; description: string }) {
-  return (
-    <div className="flex gap-4 items-start">
-      <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold">
-        {icon}
-      </div>
-      <div className="space-y-1">
-        <h3 className="font-semibold">{title}</h3>
-        <p className="text-sm text-muted-foreground">{description}</p>
       </div>
     </div>
   )

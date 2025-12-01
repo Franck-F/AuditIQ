@@ -9,6 +9,7 @@ from db import Base
 class Dataset(Base):
     """Représente un dataset uploadé pour audit"""
     __tablename__ = 'datasets'
+    __table_args__ = {'extend_existing': True}
     
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
@@ -60,6 +61,7 @@ class Dataset(Base):
 class Audit(Base):
     """Représente un audit de fairness sur un dataset"""
     __tablename__ = 'audits'
+    __table_args__ = {'extend_existing': True}
     
     id = Column(Integer, primary_key=True, index=True)
     dataset_id = Column(Integer, ForeignKey('datasets.id'), nullable=False)
@@ -100,4 +102,3 @@ class Audit(Base):
     # Relations
     dataset = relationship("Dataset", back_populates="audits")
     user = relationship("User", back_populates="audits")
-

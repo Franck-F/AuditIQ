@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Sidebar } from '@/components/dashboard/sidebar'
 import { DashboardHeader } from '@/components/dashboard/header'
@@ -9,8 +10,26 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Plus, Search, Filter, BarChart3, Clock, ArrowRight } from 'lucide-react'
+import { auditService } from '@/services/auditService'
 
 export default function AuditsPage() {
+  const [audits, setAudits] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchAudits = async () => {
+      try {
+        const data = await auditService.getAll()
+        setAudits(data)
+      } catch (error) {
+        console.error('Failed to fetch audits:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchAudits()
+  }, [])
+
   return (
     <div className="flex min-h-screen">
       <Sidebar />
@@ -71,46 +90,24 @@ export default function AuditsPage() {
 
           {/* Audits List */}
           <div className="space-y-4">
-            <Link href="/dashboard/audits/1">
-              <AuditCard
-                name="Système de scoring crédit"
-                usecase="Scoring client"
-                score={72}
-                status="critical"
-                date="Il y a 2 heures"
-                biases={3}
-              />
-            </Link>
-            <Link href="/dashboard/audits/2">
-              <AuditCard
-                name="Tri de CV automatisé"
-                usecase="Recrutement"
-                score={94}
-                status="compliant"
-                date="Il y a 1 jour"
-                biases={0}
-              />
-            </Link>
-            <Link href="/dashboard/audits/3">
-              <AuditCard
-                name="Priorisation tickets support"
-                usecase="Service client"
-                score={85}
-                status="warning"
-                date="Il y a 3 jours"
-                biases={1}
-              />
-            </Link>
-            <Link href="/dashboard/audits/4">
-              <AuditCard
-                name="Segmentation clients"
-                usecase="Marketing"
-                score={91}
-                status="compliant"
-                date="Il y a 5 jours"
-                biases={0}
-              />
-            </Link>
+            {loading ? (
+              <div className="text-center py-8">Chargement...</div>
+            ) : audits.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">Aucun audit trouvé</div>
+            ) : (
+              audits.map((audit) => (
+                <Link key={audit.id} href={`/dashboard/audits/${audit.id}`}>
+                  <AuditCard
+                    name={audit.name || `Audit #${audit.id}`}
+                    usecase={audit.use_case || 'N/A'}
+                    score={audit.score ? Math.round(audit.score) : 0}
+                    status={audit.score && audit.score < 80 ? 'critical' : 'compliant'} // Simple logic for now
+                    date={new Date(audit.created_at).toLocaleDateString()}
+                    biases={0} // To be implemented
+                  />
+                </Link>
+              ))
+            )}
           </div>
         </main>
       </div>

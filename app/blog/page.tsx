@@ -86,7 +86,7 @@ export default function BlogPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Hero Section */}
-      <section className="border-b bg-gradient-to-b from-primary/5 to-transparent">
+      <section className="border-b bg-gradient-to-b from-primary/5 to-transparent pt-32">
         <div className="container mx-auto px-4 py-16">
           <div className="max-w-3xl mx-auto text-center">
             <Badge className="mb-4" variant="outline">

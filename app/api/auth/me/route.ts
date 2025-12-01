@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
     const cookies = request.headers.get('cookie') || ''
     
     // Faire la requête au backend Python
-    const response = await fetch(`${API_URL}/api/auth/me`, {
+    const response = await fetch(`${API_URL}/auth/me`, {
       method: 'GET',
       headers: {
         'Cookie': cookies,
@@ -44,7 +44,7 @@ export async function PUT(request: NextRequest) {
     const body = await request.json()
     
     // Faire la requête au backend Python
-    const response = await fetch(`${API_URL}/api/auth/me`, {
+    const response = await fetch(`${API_URL}/auth/me`, {
       method: 'PUT',
       headers: {
         'Cookie': cookies,

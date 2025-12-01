@@ -54,6 +54,24 @@ class ResetPasswordRequest(BaseModel):
     new_password: str
 
 
+class UserCreate(BaseModel):
+    email: EmailStr
+    password: str
+    first_name: str
+    last_name: str
+    company_name: str
+    sector: str
+    company_size: str
+    
+    # F1.1.3: Profil entreprise étendu
+    siret: Optional[str] = None
+    company_address: Optional[str] = None
+    dpo_contact: Optional[str] = None
+    
+    # F1.1.5: Choix du plan
+    plan: Optional[str] = 'freemium'
+
+
 # Utility functions
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
@@ -495,3 +513,53 @@ async def get_login_history(
         }
         for log in logs
     ]
+
+
+@router.post("/register")
+async def register(
+    user: UserCreate,
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+):
+    """Register a new user and persist to DB"""
+    # Check existing user
+    q = await db.execute(select(User).where(User.email == user.email))
+    existing = q.scalars().first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Email déjà utilisé")
+
+    hashed_pw = hash_password(user.password)
+    db_user = User(
+        email=user.email,
+        hashed_password=hashed_pw,
+        first_name=user.first_name,
+        last_name=user.last_name,
+        company_name=user.company_name,
+        sector=user.sector,
+        company_size=user.company_size,
+        siret=user.siret,
+        company_address=user.company_address,
+        dpo_contact=user.dpo_contact,
+        plan=user.plan,
+        onboarding_completed=0,
+    )
+    db.add(db_user)
+    await db.commit()
+    await db.refresh(db_user)
+
+    # Create access token
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.email}, expires_delta=access_token_expires
+    )
+
+    # Set token as HttpOnly cookie
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        samesite="lax",
+        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+    )
+
+    return {"message": "registered"}

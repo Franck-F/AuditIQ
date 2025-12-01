@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
     const cookies = request.headers.get('cookie') || ''
     
     // Faire la requête au backend Python
-    const response = await fetch(`${API_URL}/api/team/members`, {
+    const response = await fetch(`${API_URL}/team/members`, {
       method: 'GET',
       headers: {
         'Cookie': cookies,

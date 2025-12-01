@@ -222,3 +222,26 @@ async def delete_account(
         "export_data": export_data,
         "email_sent": True  # TODO: implement actual email
     }
+
+
+@router.post("/onboarding")
+async def update_onboarding(
+    use_case: str,
+    onboarding_completed: int = 4,
+    db: AsyncSession = Depends(get_db),
+):
+    """Update user onboarding status (requires authentication)"""
+    # TODO: Get user from JWT token in production
+    # For now, update the first user as demo
+    stmt = select(User).limit(1)
+    q = await db.execute(stmt)
+    user = q.scalars().first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    user.use_case = use_case
+    user.onboarding_completed = onboarding_completed
+    await db.commit()
+    
+    return {"message": "onboarding updated", "use_case": use_case}

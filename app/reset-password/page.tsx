@@ -80,7 +80,7 @@ export default function ResetPasswordPage() {
     const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
     try {
-      const res = await fetch(`${API_URL}/api/auth/reset-password`, {
+      const res = await fetch(`${API_URL}/auth/reset-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

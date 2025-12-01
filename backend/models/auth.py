@@ -11,6 +11,7 @@ class LoginLog(Base):
     Historique de toutes les tentatives de connexion
     """
     __tablename__ = 'login_logs'
+    __table_args__ = {'extend_existing': True}
     
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=True)
@@ -28,6 +29,7 @@ class PasswordResetToken(Base):
     Tokens temporaires pour réinitialisation sécurisée
     """
     __tablename__ = 'password_reset_tokens'
+    __table_args__ = {'extend_existing': True}
     
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)

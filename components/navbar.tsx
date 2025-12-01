@@ -1,11 +1,12 @@
 'use client'
 
-import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Logo } from '@/components/ui/logo'
-import { Button } from '@/components/ui/button'
-import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { useState, useEffect } from 'react'
+import { AnimeNavBar } from '@/components/ui/anime-navbar'
+import { Home, Sparkles, DollarSign, BookOpen, FileText, Shield, Mail, LayoutDashboard, User, LogOut } from 'lucide-react'
+import { ThemeToggle } from '@/components/ui/theme-toggle'
+import { Logo } from '@/components/ui/logo'
+import Link from 'next/link'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,7 +16,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { User, LogOut, LayoutDashboard } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
 interface UserProfile {
   first_name: string
@@ -76,114 +77,86 @@ export function Navbar() {
     }
   }
 
+  const navItems = [
+    { name: 'Accueil', url: '/', icon: Home },
+    { name: 'Fonctionnalités', url: '/#features', icon: Sparkles },
+    { name: 'Tarifs', url: '/pricing', icon: DollarSign },
+    { name: 'Blog', url: '/blog', icon: BookOpen },
+    { name: 'Documentation', url: '/docs', icon: FileText },
+    { name: 'Conformité', url: '/compliance', icon: Shield },
+    { name: 'Contact', url: '/contact', icon: Mail },
+  ]
+
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container mx-auto flex h-16 items-center justify-between px-4">
-        {/* Logo */}
-        <Link href="/" className="flex items-center">
-          <Logo />
-        </Link>
-
-        {/* Navigation */}
-        <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
-          <Link 
-            href="/#features" 
-            className="text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Fonctionnalités
+    <>
+      {/* Logo - Fixed top left - Hidden on dashboard */}
+      {!pathname.startsWith('/dashboard') && (
+        <div className="fixed top-6 left-6 z-[10000]">
+          <Link href="/">
+            <Logo />
           </Link>
-          <Link 
-            href="/pricing" 
-            className="text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Tarifs
-          </Link>
-          <Link 
-            href="/blog" 
-            className="text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Blog
-          </Link>
-          <Link 
-            href="/docs" 
-            className="text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Documentation
-          </Link>
-          <Link 
-            href="/compliance" 
-            className="text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Conformité
-          </Link>
-          <Link 
-            href="/contact" 
-            className="text-muted-foreground hover:text-foreground transition-colors"
-          >
-            Contact
-          </Link>
-        </nav>
-
-        {/* Actions */}
-        <div className="flex items-center gap-3">
-          <ThemeToggle />
-          
-          {isAuthenticated && userProfile ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-                  <Avatar className="h-9 w-9">
-                    <AvatarFallback>{getInitials()}</AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56" align="end" forceMount>
-                <DropdownMenuLabel className="font-normal">
-                  <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">
-                      {userProfile.first_name} {userProfile.last_name}
-                    </p>
-                    <p className="text-xs leading-none text-muted-foreground">
-                      {userProfile.email}
-                    </p>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => router.push('/dashboard')}>
-                  <LayoutDashboard className="mr-2 h-4 w-4" />
-                  <span>Dashboard</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => router.push('/dashboard/profile')}>
-                  <User className="mr-2 h-4 w-4" />
-                  <span>Profil</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Se déconnecter</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : pathname === '/login' ? (
-            <Button asChild variant="default">
-              <Link href="/signup">S'inscrire</Link>
-            </Button>
-          ) : pathname === '/signup' ? (
-            <Button asChild variant="outline">
-              <Link href="/login">Se connecter</Link>
-            </Button>
-          ) : (
-            <>
-              <Button asChild variant="ghost" className="hidden sm:inline-flex">
-                <Link href="/login">Se connecter</Link>
-              </Button>
-              <Button asChild variant="default">
-                <Link href="/signup">Commencer</Link>
-              </Button>
-            </>
-          )}
         </div>
+      )}
+      
+      <AnimeNavBar items={navItems} defaultActive="Accueil" />
+      
+      {/* User Menu - Fixed top right */}
+      <div className="fixed top-6 right-6 z-[10000] flex items-center gap-3">
+        <ThemeToggle />
+        {isAuthenticated && userProfile ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="relative h-10 w-10 rounded-full bg-black/50 border border-white/10 backdrop-blur-lg hover:bg-black/70">
+                <Avatar className="h-9 w-9">
+                  <AvatarFallback className="bg-primary text-primary-foreground">{getInitials()}</AvatarFallback>
+                </Avatar>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56" align="end" forceMount>
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium leading-none">
+                    {userProfile.first_name} {userProfile.last_name}
+                  </p>
+                  <p className="text-xs leading-none text-muted-foreground">
+                    {userProfile.email}
+                  </p>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => router.push('/dashboard')}>
+                <LayoutDashboard className="mr-2 h-4 w-4" />
+                <span>Dashboard</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push('/dashboard/profile')}>
+                <User className="mr-2 h-4 w-4" />
+                <span>Profil</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleLogout}>
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Se déconnecter</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : pathname !== '/login' && pathname !== '/signup' ? (
+          <div className="flex items-center gap-2">
+            <Button 
+              asChild 
+              variant="ghost" 
+              className="hidden sm:inline-flex bg-black/50 border border-white/10 backdrop-blur-lg text-white hover:bg-black/70"
+            >
+              <a href="/login">Se connecter</a>
+            </Button>
+            <Button 
+              asChild 
+              className="bg-primary hover:bg-primary/90"
+            >
+              <a href="/signup">Commencer</a>
+            </Button>
+          </div>
+        ) : null}
       </div>
-    </header>
+    </>
   )
 }

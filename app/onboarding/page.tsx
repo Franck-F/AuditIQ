@@ -27,7 +27,7 @@ export default function OnboardingPage() {
     try {
       // Only update if user selected a use case
       if (useCase) {
-        const res = await fetch(`${API_URL}/api/user/onboarding?use_case=${useCase}&onboarding_completed=4`, {
+        const res = await fetch(`${API_URL}/user/onboarding?use_case=${useCase}&onboarding_completed=4`, {
           method: 'POST',
           credentials: 'include', // Send cookies
         })

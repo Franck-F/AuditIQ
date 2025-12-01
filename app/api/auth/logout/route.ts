@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
     const cookies = request.headers.get('cookie') || ''
     
     // Faire la requête au backend Python
-    const response = await fetch(`${API_URL}/api/auth/logout`, {
+    const response = await fetch(`${API_URL}/auth/logout`, {
       method: 'POST',
       headers: {
         'Cookie': cookies,

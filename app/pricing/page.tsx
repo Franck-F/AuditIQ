@@ -14,7 +14,7 @@ export default function PricingPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Hero Section */}
-      <section className="border-b bg-gradient-to-b from-primary/5 to-transparent">
+      <section className="border-b bg-gradient-to-b from-primary/5 to-transparent pt-32">
         <div className="container mx-auto px-4 py-16 md:py-24">
           <div className="text-center space-y-6 max-w-4xl mx-auto">
             <Badge className="mb-4" variant="outline">

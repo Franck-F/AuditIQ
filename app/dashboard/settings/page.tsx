@@ -94,7 +94,7 @@ export default function SettingsPage() {
 
   const fetchProfileSettings = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/settings/profile`, {
+      const res = await fetch(`${API_URL}/settings/profile`, {
         credentials: 'include'
       })
       if (res.ok) {
@@ -110,7 +110,7 @@ export default function SettingsPage() {
 
   const fetchCompanySettings = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/settings/company`, {
+      const res = await fetch(`${API_URL}/settings/company`, {
         credentials: 'include'
       })
       if (res.ok) {
@@ -126,7 +126,7 @@ export default function SettingsPage() {
 
   const fetchNotificationSettings = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/settings/notifications`, {
+      const res = await fetch(`${API_URL}/settings/notifications`, {
         credentials: 'include'
       })
       if (res.ok) {
@@ -143,7 +143,7 @@ export default function SettingsPage() {
   const saveProfileSettings = async () => {
     setSavingProfile(true)
     try {
-      const res = await fetch(`${API_URL}/api/settings/profile`, {
+      const res = await fetch(`${API_URL}/settings/profile`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -177,7 +177,7 @@ export default function SettingsPage() {
   const saveCompanySettings = async () => {
     setSavingCompany(true)
     try {
-      const res = await fetch(`${API_URL}/api/settings/company`, {
+      const res = await fetch(`${API_URL}/settings/company`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -211,7 +211,7 @@ export default function SettingsPage() {
   const saveNotificationSettings = async () => {
     setSavingNotifications(true)
     try {
-      const res = await fetch(`${API_URL}/api/settings/notifications`, {
+      const res = await fetch(`${API_URL}/settings/notifications`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -262,7 +262,7 @@ export default function SettingsPage() {
     
     setChangingPassword(true)
     try {
-      const res = await fetch(`${API_URL}/api/settings/change-password`, {
+      const res = await fetch(`${API_URL}/settings/change-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -312,7 +312,7 @@ export default function SettingsPage() {
     
     setDeletingAccount(true)
     try {
-      const res = await fetch(`${API_URL}/api/settings/delete-account`, {
+      const res = await fetch(`${API_URL}/settings/delete-account`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -354,7 +354,7 @@ export default function SettingsPage() {
     setLoadingHistory(true)
     
     try {
-      const res = await fetch(`${API_URL}/api/auth/login-history?limit=10`, {
+      const res = await fetch(`${API_URL}/auth/login-history?limit=10`, {
         credentials: 'include'
       })
       if (res.ok) {
@@ -370,7 +370,7 @@ export default function SettingsPage() {
 
   const handleExportData = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/settings/export`, {
+      const res = await fetch(`${API_URL}/settings/export`, {
         credentials: 'include'
       })
       if (res.ok) {

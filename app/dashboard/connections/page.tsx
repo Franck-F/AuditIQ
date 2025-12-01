@@ -67,7 +67,7 @@ export default function ConnectionsPage() {
 
   const loadConnectionTypes = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/connections/types`, {
+      const response = await fetch(`${API_URL}/connections/types`, {
         credentials: 'include'
       })
       const data = await response.json()
@@ -86,7 +86,7 @@ export default function ConnectionsPage() {
   const loadConnections = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`${API_URL}/api/connections/`, {
+      const response = await fetch(`${API_URL}/connections/`, {
         credentials: 'include'
       })
       
@@ -128,7 +128,7 @@ export default function ConnectionsPage() {
 
     try {
       // Test de la connexion d'abord
-      const testResponse = await fetch(`${API_URL}/api/connections/test`, {
+      const testResponse = await fetch(`${API_URL}/connections/test`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -151,7 +151,7 @@ export default function ConnectionsPage() {
       }
 
       // Créer la connexion
-      const response = await fetch(`${API_URL}/api/connections/`, {
+      const response = await fetch(`${API_URL}/connections/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -185,7 +185,7 @@ export default function ConnectionsPage() {
   const handleSync = async (connectionId: number) => {
     setSyncing(connectionId)
     try {
-      const response = await fetch(`${API_URL}/api/connections/${connectionId}/sync`, {
+      const response = await fetch(`${API_URL}/connections/${connectionId}/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -218,7 +218,7 @@ export default function ConnectionsPage() {
     if (!confirm("Êtes-vous sûr de vouloir supprimer cette connexion ?")) return
 
     try {
-      const response = await fetch(`${API_URL}/api/connections/${connectionId}`, {
+      const response = await fetch(`${API_URL}/connections/${connectionId}`, {
         method: 'DELETE',
         credentials: 'include'
       })

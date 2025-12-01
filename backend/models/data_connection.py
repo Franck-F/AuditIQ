@@ -6,20 +6,18 @@ from sqlalchemy.orm import relationship
 from datetime import datetime
 from db import Base
 
-
 class DataConnection(Base):
     """
-    Table pour stocker les connexions aux sources de données externes
-    F2.2.1 à F2.2.4
+    F2.2: Connexions aux sources de données
     """
     __tablename__ = "data_connections"
+    __table_args__ = {'extend_existing': True}
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    
-    # Type de connexion
-    connection_type = Column(String(50), nullable=False)  # 'google_sheets', 'salesforce', 'api_rest', etc.
-    name = Column(String(255), nullable=False)  # Nom donné par l'utilisateur
+    name = Column(String, nullable=False)
+    type = Column(String, nullable=False)  # 'database', 'api', 'saas'
+    provider = Column(String, nullable=False)  # 'postgres', 'salesforce', 'hubspot'
     
     # Configuration générique
     config = Column(JSON, nullable=False)  # Configuration spécifique (URL, paramètres, etc.)
@@ -52,6 +50,7 @@ class SyncHistory(Base):
     Historique des synchronisations
     """
     __tablename__ = "sync_history"
+    __table_args__ = {'extend_existing': True}
 
     id = Column(Integer, primary_key=True, index=True)
     connection_id = Column(Integer, ForeignKey("data_connections.id"), nullable=False)

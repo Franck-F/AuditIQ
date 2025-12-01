@@ -93,7 +93,7 @@ export default function UploadPage() {
     if (!preview) return
 
     try {
-      const response = await fetch(`${API_URL}/api/upload/datasets/${preview.dataset_id}/missing-values`, {
+      const response = await fetch(`${API_URL}/upload/datasets/${preview.dataset_id}/missing-values`, {
         credentials: 'include'
       })
 
@@ -120,7 +120,7 @@ export default function UploadPage() {
 
     setProcessingMissing(true)
     try {
-      const response = await fetch(`${API_URL}/api/upload/datasets/${preview.dataset_id}/handle-missing-values`, {
+      const response = await fetch(`${API_URL}/upload/datasets/${preview.dataset_id}/handle-missing-values`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -143,7 +143,7 @@ export default function UploadPage() {
       setMissingValuesStrategies({})
       
       // Recharger les données du dataset pour mettre à jour le preview
-      const detailsResponse = await fetch(`${API_URL}/api/upload/datasets/${preview.dataset_id}`, {
+      const detailsResponse = await fetch(`${API_URL}/upload/datasets/${preview.dataset_id}`, {
         credentials: 'include'
       })
       
@@ -209,7 +209,7 @@ export default function UploadPage() {
     setSaving(true)
 
     try {
-      const response = await fetch(`${API_URL}/api/upload/datasets/${preview.dataset_id}/configure`, {
+      const response = await fetch(`${API_URL}/upload/datasets/${preview.dataset_id}/configure`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

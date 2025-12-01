@@ -5,9 +5,9 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Logo } from '@/components/ui/logo'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, Sparkles, Mail } from 'lucide-react'
+import { AnimatedCharacters } from '@/components/animated-characters'
 
 // Helper pour extraire le message d'erreur
 function getErrorMessage(data: any): string {
@@ -25,12 +25,12 @@ function getErrorMessage(data: any): string {
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
-
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [isLocked, setIsLocked] = useState(false)
+  const [isTyping, setIsTyping] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -40,7 +40,7 @@ export default function LoginPage() {
     const API_URL = (process.env.NEXT_PUBLIC_API_URL as string) || 'http://localhost:8000'
 
     try {
-      const res = await fetch(`${API_URL}/api/auth/login`, {
+      const res = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -74,6 +74,7 @@ export default function LoginPage() {
 
       // Connexion réussie
       console.log('Connexion réussie:', data.user)
+      localStorage.setItem('token', data.access_token)
       window.location.href = '/dashboard'
     } catch (err) {
       setError('Erreur de connexion au serveur. Vérifiez que le backend est démarré.')
@@ -84,44 +85,93 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left Side - Form */}
-      <div className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8">
-        <div className="w-full max-w-md space-y-8">
-          <div className="text-center space-y-2">
-            <Logo className="justify-center mb-6" />
-            <h1 className="text-3xl font-bold tracking-tight">Bienvenue sur Audit-IQ</h1>
-            <p className="text-muted-foreground">Connectez-vous à votre compte</p>
+    <div className="min-h-screen grid lg:grid-cols-2">
+      {/* Left Content Section */}
+      <div className="relative hidden lg:flex flex-col justify-between bg-gradient-to-br from-gray-50 via-gray-100 to-gray-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-12 text-foreground overflow-hidden">
+        <div className="relative z-20">
+          <div className="flex items-center gap-2 text-lg font-semibold">
+            {/*<div className="size-8 rounded-lg bg-primary-foreground/10 backdrop-blur-sm flex items-center justify-center">
+              <Sparkles className="size-4" />
+            </div>
+            <span></span>*/}
+          </div>
+        </div>
+
+        <div className="relative z-20 flex items-end justify-center h-[500px]">
+          {/* Cartoon Characters */}
+          <AnimatedCharacters 
+            isTyping={isTyping} 
+            passwordLength={password.length} 
+            showPassword={showPassword} 
+          />
+        </div>
+
+        <div className="relative z-20 flex items-center gap-8 text-sm text-primary-foreground/60">
+          <Link href="/privacy" className="hover:text-primary-foreground transition-colors">
+            Privacy Policy
+          </Link>
+          <Link href="/terms" className="hover:text-primary-foreground transition-colors">
+            Terms of Service
+          </Link>
+          <Link href="/contact" className="hover:text-primary-foreground transition-colors">
+            Contact
+          </Link>
+        </div>
+
+        {/* Decorative elements */}
+        <div className="absolute inset-0 bg-grid-white/[0.05] bg-[size:20px_20px]" />
+        <div className="absolute top-1/4 right-1/4 size-64 bg-primary-foreground/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-1/4 left-1/4 size-96 bg-primary-foreground/5 rounded-full blur-3xl" />
+      </div>
+
+      {/* Right Login Section */}
+      <div className="flex items-center justify-center p-8 bg-background">
+        <div className="w-full max-w-[420px]">
+          {/* Mobile Logo */}
+          <div className="lg:hidden flex items-center justify-center gap-2 text-lg font-semibold mb-12">
+            <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Sparkles className="size-4 text-primary" />
+            </div>
+            <span>Audit-IQ</span>
           </div>
 
-          <form className="space-y-6" onSubmit={handleSubmit}>
+          {/* Header */}
+          <div className="text-center mb-10">
+            <h1 className="text-3xl font-bold tracking-tight mb-2">Bienvenue !</h1>
+            <p className="text-muted-foreground text-sm">Entrez vos identifiants pour accéder à votre espace</p>
+          </div>
+
+          {/* Login Form */}
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="email">Adresse email</Label>
-              <Input 
-                id="email" 
-                type="email" 
+              <Label htmlFor="email" className="text-sm font-medium">Email</Label>
+              <Input
+                id="email"
+                type="email"
                 placeholder="vous@entreprise.com"
-                className="h-11"
                 value={email}
+                autoComplete="email"
                 onChange={(e) => setEmail(e.target.value)}
+                onFocus={() => setIsTyping(true)}
+                onBlur={() => setIsTyping(false)}
+                required
+                className="h-12 bg-background border-border/60 focus:border-primary"
               />
             </div>
 
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">Mot de passe</Label>
-                <Link href="/forgot-password" className="text-sm text-primary hover:underline">
-                  Mot de passe oublié ?
-                </Link>
-              </div>
+              <Label htmlFor="password" className="text-sm font-medium">Mot de passe</Label>
               <div className="relative">
-                <Input 
-                  id="password" 
+                <Input
+                  id="password"
                   type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
-                  className="h-11 pr-10"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  onFocus={() => setIsTyping(true)}
+                  onBlur={() => setIsTyping(false)}
+                  required
+                  className="h-12 pr-10 bg-background border-border/60 focus:border-primary"
                 />
                 <button
                   type="button"
@@ -129,121 +179,74 @@ export default function LoginPage() {
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 >
                   {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
+                    <EyeOff className="size-5" />
                   ) : (
-                    <Eye className="h-4 w-4" />
+                    <Eye className="size-5" />
                   )}
                 </button>
               </div>
             </div>
 
-            <div className="flex items-center space-x-2">
-              <Checkbox id="remember" />
-              <label
-                htmlFor="remember"
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Checkbox id="remember" />
+                <Label
+                  htmlFor="remember"
+                  className="text-sm font-normal cursor-pointer"
+                >
+                  Se souvenir de moi
+                </Label>
+              </div>
+              <Link
+                href="/forgot-password"
+                className="text-sm text-primary hover:underline font-medium"
               >
-                Se souvenir de moi
-              </label>
+                Mot de passe oublié ?
+              </Link>
             </div>
 
-            <Button type="submit" className="w-full h-11 text-base glow-primary" disabled={loading || isLocked}>
-              {loading ? 'Connexion...' : isLocked ? 'Compte verrouillé' : 'Se connecter'}
-            </Button>
-
             {error && (
-              <div className={`rounded-lg border p-4 ${isLocked ? 'bg-destructive/10 border-destructive/50' : 'bg-destructive/10 border-destructive/50'}`}>
-                <div className="flex items-start gap-3">
-                  <div className={`rounded-full p-1 ${isLocked ? 'bg-destructive' : 'bg-destructive'}`}>
-                    <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-destructive">{error}</p>
-                    {isLocked && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Votre compte a été temporairement verrouillé pour des raisons de sécurité. 
-                        Veuillez réessayer dans quelques minutes.
-                      </p>
-                    )}
-                  </div>
-                </div>
+              <div className={`p-3 text-sm rounded-lg border ${isLocked ? 'bg-destructive/10 border-destructive/50 text-destructive' : 'bg-destructive/10 border-destructive/50 text-destructive'}`}>
+                {error}
+                {isLocked && (
+                  <p className="text-xs mt-1 opacity-80">
+                    Votre compte a été temporairement verrouillé. Réessayez plus tard.
+                  </p>
+                )}
               </div>
             )}
 
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-border" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">
-                  Ou continuer avec
-                </span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-3">
-              <Button variant="outline" className="h-11" type="button">
-                <img 
-                  src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-iX9UGe131WleCUasf7qjg2thc6Wi6s.png" 
-                  alt="Google" 
-                  className="h-5 w-auto"
-                />
-              </Button>
-              <Button variant="outline" className="h-11" type="button">
-                <img 
-                  src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-TXyB1H5UL38Cd2ucnrBLnkF3XEd3fJ.png" 
-                  alt="Microsoft" 
-                  className="h-5 w-auto"
-                />
-              </Button>
-              <Button variant="outline" className="h-11" type="button">
-                <img 
-                  src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-GLZgyggMq90d5POLFrkYrgRtMSoZ4L.png" 
-                  alt="AWS" 
-                  className="h-5 w-auto"
-                />
-              </Button>
-            </div>
+            <Button 
+              type="submit" 
+              className="w-full h-12 text-base font-medium glow-primary" 
+              size="lg" 
+              disabled={loading || isLocked}
+            >
+              {loading ? "Connexion..." : isLocked ? "Compte verrouillé" : "Se connecter"}
+            </Button>
           </form>
 
-          <p className="text-center text-sm text-muted-foreground">
-            Pas encore de compte ?{' '}
-            <Link href="/signup" className="font-semibold text-primary hover:underline">
+          {/* Social Login */}
+          <div className="mt-6">
+            <Button 
+              variant="outline" 
+              className="w-full h-12 bg-background border-border/60 hover:bg-accent"
+              type="button"
+            >
+              <Mail className="mr-2 size-5" />
+              Continuer avec Google
+            </Button>
+          </div>
+
+          {/* Sign Up Link */}
+          <div className="text-center text-sm text-muted-foreground mt-8">
+            Pas encore de compte ?{" "}
+            <Link href="/signup" className="text-foreground font-medium hover:underline">
               Créer un compte
             </Link>
-          </p>
-        </div>
-      </div>
-
-      {/* Right Side - Visual */}
-      <div className="hidden lg:flex lg:flex-1 bg-gradient-to-br from-primary/20 via-secondary/20 to-background relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(233,30,140,0.1),transparent_50%)]" />
-        <div className="relative flex flex-col items-center justify-center p-12 text-center space-y-6">
-          <div className="space-y-4 max-w-lg">
-            <h2 className="text-4xl font-bold">Garantissez l'équité de vos algorithmes</h2>
-            <p className="text-lg text-muted-foreground leading-relaxed">
-              Détectez et corrigez les biais algorithmiques pour une IA juste et conforme aux réglementations
-            </p>
-          </div>
-          <div className="grid grid-cols-2 gap-6 w-full max-w-md mt-12">
-            <StatCard value="94%" label="Score d'équité moyen" />
-            <StatCard value="100+" label="Audits réalisés" />
-            <StatCard value="8+" label="Métriques de fairness" />
-            <StatCard value="RGPD" label="Conformité native" />
           </div>
         </div>
       </div>
-    </div>
-  )
-}
-
-function StatCard({ value, label }: { value: string; label: string }) {
-  return (
-    <div className="rounded-xl border border-border bg-card/50 backdrop-blur p-6 space-y-1">
-      <p className="text-3xl font-bold text-gradient">{value}</p>
-      <p className="text-sm text-muted-foreground">{label}</p>
     </div>
   )
 }

@@ -7,29 +7,7 @@ import { BookOpen, Code, FileText, Video, Download, ArrowRight, Search, ChevronR
 export default function DocsPage() {
   return (
     <div className="min-h-screen bg-background">
-      {/* Navigation */}
-      <nav className="fixed top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-lg">
-        <div className="container mx-auto flex h-16 items-center justify-between px-4">
-          <Link href="/">
-            <Logo />
-          </Link>
-          <div className="flex items-center gap-4">
-            <ThemeToggle />
-            <Link href="/login">
-              <Button variant="ghost" size="sm">
-                Connexion
-              </Button>
-            </Link>
-            <Link href="/signup">
-              <Button size="sm" className="glow-primary">
-                Commencer
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </nav>
-
-      <div className="pt-16">
+      <div className="pt-32">
         {/* Hero Section */}
         <section className="py-20 bg-gradient-to-b from-primary/5 to-transparent">
           <div className="container mx-auto px-4">

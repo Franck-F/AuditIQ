@@ -10,37 +10,6 @@ import { ArrowRight, Shield, BarChart3, FileCheck, Zap, Users, Lock, TrendingUp,
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background">
-      {/* Navigation */}
-      <nav className="fixed top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur-lg">
-        <div className="container mx-auto flex h-16 items-center justify-between px-4">
-          <Logo />
-          <div className="hidden items-center gap-6 md:flex">
-            <Link href="#features" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
-              Fonctionnalités
-            </Link>
-            <Link href="#technology" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
-              Technologie
-            </Link>
-            <Link href="/docs" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
-              Documentation
-            </Link>
-            <Link href="/pricing" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
-              Tarifs
-            </Link>
-            <ThemeToggle />
-            <Link href="/login">
-              <Button variant="ghost" size="sm">
-                Connexion
-              </Button>
-            </Link>
-            <Link href="/signup">
-              <Button size="sm" className="glow-primary">
-                Commencer
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </nav>
 
       {/* Hero Section */}
       <section className="relative overflow-hidden pt-32 pb-20">

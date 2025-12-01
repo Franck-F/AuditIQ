@@ -130,5 +130,5 @@ Distribué sous la licence MIT. Voir `LICENSE` pour plus d'informations.
 ---
 
 <div align="center">
-  <p>Développé avec ❤️ par l'équipe Franck-F</p>
+  <p>Développé avec ❤️ par Franck-F</p>
 </div>
