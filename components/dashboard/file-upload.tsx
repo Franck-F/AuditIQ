@@ -1,148 +1,268 @@
 'use client'
 
-import { useState, useCallback } from 'react'
-import { Upload, File, X, AlertCircle } from 'lucide-react'
+import { useState, useCallback, DragEvent } from 'react'
+import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, X, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Progress } from '@/components/ui/progress'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { cn } from '@/lib/utils'
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
 interface FileUploadProps {
-  onUpload: (file: File) => void
-  accept?: string
-  maxSize?: number
+  onUpload: (file: File, preview: any) => void
+  onError?: (error: string) => void
 }
 
-export function FileUpload({ onUpload, accept = ".csv,.xlsx", maxSize = 10 * 1024 * 1024 }: FileUploadProps) {
-  const [dragActive, setDragActive] = useState(false)
+export function FileUpload({ onUpload, onError }: FileUploadProps) {
+  const [isDragging, setIsDragging] = useState(false)
   const [file, setFile] = useState<File | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
-
-  const handleDrag = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true)
-    } else if (e.type === "dragleave") {
-      setDragActive(false)
-    }
-  }, [])
+  const [success, setSuccess] = useState(false)
 
   const validateFile = (file: File): string | null => {
+    // F2.1.2: Validation du type MIME
+    const allowedTypes = [
+      'text/csv',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'text/plain'
+    ]
+    
+    const allowedExtensions = ['.csv', '.xls', '.xlsx']
+    const fileExtension = file.name.toLowerCase().slice(file.name.lastIndexOf('.'))
+    
+    if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
+      return 'Type de fichier non autorisé. Formats acceptés: CSV (.csv), Excel (.xls, .xlsx)'
+    }
+    
+    // Limite de taille (50 MB pour l'upload initial)
+    const maxSize = 50 * 1024 * 1024 // 50 MB
     if (file.size > maxSize) {
-      return `Le fichier est trop volumineux. Taille maximale : ${maxSize / 1024 / 1024}MB`
+      return `Fichier trop volumineux. Taille maximum: ${maxSize / (1024 * 1024)} MB`
     }
-    const extension = '.' + file.name.split('.').pop()?.toLowerCase()
-    if (!accept.includes(extension)) {
-      return `Format non supporté. Formats acceptés : ${accept}`
-    }
+    
     return null
   }
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setDragActive(false)
-    setError(null)
-
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const droppedFile = e.dataTransfer.files[0]
-      const validationError = validateFile(droppedFile)
-      
-      if (validationError) {
-        setError(validationError)
-        return
-      }
-
-      setFile(droppedFile)
-      onUpload(droppedFile)
+  const handleFile = async (selectedFile: File) => {
+    const validationError = validateFile(selectedFile)
+    if (validationError) {
+      setError(validationError)
+      if (onError) onError(validationError)
+      return
     }
-  }, [accept, maxSize, onUpload])
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    e.preventDefault()
+    setFile(selectedFile)
     setError(null)
-    
-    if (e.target.files && e.target.files[0]) {
-      const selectedFile = e.target.files[0]
-      const validationError = validateFile(selectedFile)
-      
-      if (validationError) {
-        setError(validationError)
-        return
+    setSuccess(false)
+    setUploading(true)
+    setUploadProgress(10)
+
+    try {
+      const formData = new FormData()
+      formData.append('file', selectedFile)
+
+      // Simuler la progression de l'upload
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval)
+            return 90
+          }
+          return prev + 10
+        })
+      }, 200)
+
+      const response = await fetch(`${API_URL}/api/upload/file`, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include'
+      })
+
+      clearInterval(progressInterval)
+      setUploadProgress(100)
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Erreur lors de l\'upload')
       }
 
-      setFile(selectedFile)
-      onUpload(selectedFile)
+      const preview = await response.json()
+      setSuccess(true)
+      
+      // Appeler le callback avec le fichier et la prévisualisation
+      setTimeout(() => {
+        onUpload(selectedFile, preview)
+      }, 500)
+
+    } catch (err: any) {
+      setError(err.message || 'Erreur lors de l\'upload du fichier')
+      if (onError) onError(err.message)
+      setUploadProgress(0)
+    } finally {
+      setUploading(false)
     }
   }
 
-  const removeFile = () => {
+  const handleDragEnter = useCallback((e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(true)
+  }, [])
+
+  const handleDragLeave = useCallback((e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+  }, [])
+
+  const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }, [])
+
+  const handleDrop = useCallback((e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+
+    const files = Array.from(e.dataTransfer.files)
+    if (files.length > 0) {
+      handleFile(files[0])
+    }
+  }, [])
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (files && files.length > 0) {
+      handleFile(files[0])
+    }
+  }
+
+  const handleRemove = () => {
     setFile(null)
     setError(null)
+    setSuccess(false)
+    setUploadProgress(0)
   }
 
   return (
     <div className="space-y-4">
+      {/* F2.1.1: Zone de drop avec drag & drop */}
       <div
-        className={cn(
-          "relative rounded-lg border-2 border-dashed transition-all",
-          dragActive ? "border-primary bg-primary/5" : "border-border bg-card",
-          error && "border-destructive"
-        )}
-        onDragEnter={handleDrag}
-        onDragLeave={handleDrag}
-        onDragOver={handleDrag}
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
         onDrop={handleDrop}
+        className={cn(
+          "relative flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-12 transition-colors",
+          isDragging && "border-primary bg-primary/5",
+          !isDragging && !file && "border-border hover:border-primary/50 hover:bg-accent/50",
+          file && !uploading && "border-border",
+          uploading && "border-primary bg-primary/5"
+        )}
       >
-        <input
-          type="file"
-          id="file-upload"
-          className="hidden"
-          onChange={handleChange}
-          accept={accept}
-        />
-        
-        {!file ? (
-          <label
-            htmlFor="file-upload"
-            className="flex cursor-pointer flex-col items-center justify-center p-12 text-center"
-          >
-            <div className="rounded-full bg-primary/10 p-4 mb-4">
+        {!file && !uploading && (
+          <>
+            <div className="mb-4 rounded-full bg-primary/10 p-4">
               <Upload className="h-8 w-8 text-primary" />
             </div>
-            <p className="text-lg font-semibold mb-2">
-              Glissez-déposez votre fichier ici
-            </p>
-            <p className="text-sm text-muted-foreground mb-4">
+            <h3 className="mb-2 text-lg font-semibold">
+              {isDragging ? 'Déposez votre fichier ici' : 'Glissez-déposez votre fichier'}
+            </h3>
+            <p className="mb-4 text-sm text-muted-foreground">
               ou cliquez pour sélectionner un fichier
             </p>
-            <p className="text-xs text-muted-foreground">
-              Formats supportés : CSV, Excel - Maximum {maxSize / 1024 / 1024}MB
-            </p>
-          </label>
-        ) : (
-          <div className="flex items-center justify-between p-6">
+            <input
+              type="file"
+              accept=".csv,.xls,.xlsx"
+              onChange={handleFileSelect}
+              className="absolute inset-0 cursor-pointer opacity-0"
+              disabled={uploading}
+            />
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <FileSpreadsheet className="h-4 w-4" />
+              <span>CSV, Excel (.xls, .xlsx) - Max 50 MB</span>
+            </div>
+          </>
+        )}
+
+        {uploading && file && (
+          <div className="w-full max-w-md space-y-4">
             <div className="flex items-center gap-3">
-              <div className="rounded-lg bg-primary/10 p-3">
-                <File className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <p className="font-medium">{file.name}</p>
-                <p className="text-sm text-muted-foreground">
-                  {(file.size / 1024).toFixed(2)} KB
-                </p>
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <div className="flex-1 space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-medium truncate max-w-xs">{file.name}</span>
+                  <span className="text-muted-foreground">{uploadProgress}%</span>
+                </div>
+                <Progress value={uploadProgress} className="h-2" />
               </div>
             </div>
-            <Button variant="ghost" size="icon" onClick={removeFile}>
-              <X className="h-5 w-5" />
-            </Button>
+            <p className="text-center text-sm text-muted-foreground">
+              {uploadProgress < 30 && "Upload en cours..."}
+              {uploadProgress >= 30 && uploadProgress < 60 && "Détection de l'encodage..."}
+              {uploadProgress >= 60 && uploadProgress < 90 && "Analyse des colonnes..."}
+              {uploadProgress >= 90 && "Finalisation..."}
+            </p>
+          </div>
+        )}
+
+        {file && success && !uploading && (
+          <div className="w-full max-w-md space-y-4">
+            <div className="flex items-center gap-3 rounded-lg bg-green-500/10 p-4">
+              <CheckCircle2 className="h-8 w-8 text-green-500 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="font-medium truncate">{file.name}</p>
+                <p className="text-sm text-muted-foreground">
+                  {(file.size / 1024 / 1024).toFixed(2)} MB
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleRemove}
+                className="hover:bg-red-500/10 hover:text-red-500"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <p className="text-center text-sm text-green-600 font-medium">
+              ✓ Fichier uploadé avec succès
+            </p>
           </div>
         )}
       </div>
 
+      {/* F2.1.2: Messages d'erreur */}
       {error && (
-        <div className="flex items-center gap-2 rounded-lg border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
+        <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
-          <p>{error}</p>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      {/* Informations sur les limites */}
+      {!file && !uploading && (
+        <div className="rounded-lg border border-border bg-muted/30 p-4">
+          <h4 className="text-sm font-semibold mb-2">Limites par plan</h4>
+          <ul className="space-y-1 text-sm text-muted-foreground">
+            <li className="flex items-center gap-2">
+              <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+              <span><strong>Freemium:</strong> 10,000 lignes maximum</span>
+            </li>
+            <li className="flex items-center gap-2">
+              <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+              <span><strong>Pro:</strong> 100,000 lignes maximum</span>
+            </li>
+            <li className="flex items-center gap-2">
+              <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+              <span><strong>Enterprise:</strong> 1,000,000+ lignes</span>
+            </li>
+          </ul>
         </div>
       )}
     </div>

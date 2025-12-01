@@ -12,7 +12,7 @@ def show_database():
     print("\n=== TABLES ===")
     for table in tables:
         table_name = table[0]
-        print(f"\n📋 Table: {table_name}")
+        print(f"\n Table: {table_name}")
         
         # Compter les lignes
         cursor.execute(f"SELECT COUNT(*) FROM {table_name}")

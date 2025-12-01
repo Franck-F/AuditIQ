@@ -68,8 +68,10 @@ export async function registerUser(payload: SignupPayload): Promise<RegisterResp
 
 export async function logoutUser(): Promise<void> {
   try {
-    await apiFetch('/api/auth/logout', {
+    // Utilise l'API route Next.js au lieu du backend direct
+    await fetch('/api/auth/logout', {
       method: 'POST',
+      credentials: 'include',
     })
   } finally {
     // Quoi qu'il arrive, on nettoie le token local

@@ -7,9 +7,75 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { UserPlus, MoreVertical, Mail, Shield, User } from 'lucide-react'
+import { MoreVertical, Mail } from 'lucide-react'
+import { InviteMemberDialog } from '@/components/dashboard/invite-member-dialog'
+import { useState, useEffect } from 'react'
+
+interface TeamMember {
+  id: string
+  first_name: string
+  last_name: string
+  email: string
+  role: string
+  is_active: boolean
+  created_at: string
+  last_login: string | null
+}
 
 export default function TeamPage() {
+  const [members, setMembers] = useState<TeamMember[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetchTeamMembers()
+  }, [])
+
+  const fetchTeamMembers = async () => {
+    setLoading(true)
+    
+    try {
+      const res = await fetch('/api/team/members', {
+        credentials: 'include'
+      })
+      
+      if (res.ok) {
+        const data = await res.json()
+        setMembers(data)
+      } else {
+        setError('Erreur lors du chargement des membres')
+      }
+    } catch (err) {
+      setError('Erreur de connexion au serveur')
+      console.error('Erreur:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const getInitials = (firstName: string, lastName: string) => {
+    return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase()
+  }
+
+  const getRoleBadgeVariant = (role: string): 'default' | 'secondary' | 'destructive' => {
+    switch (role.toLowerCase()) {
+      case 'admin':
+        return 'destructive'
+      case 'auditor':
+        return 'default'
+      default:
+        return 'secondary'
+    }
+  }
+
+  const getRoleLabel = (role: string) => {
+    const roles: Record<string, string> = {
+      admin: 'Admin',
+      auditor: 'Auditeur',
+      reader: 'Lecteur'
+    }
+    return roles[role.toLowerCase()] || role
+  }
   return (
     <div className="flex min-h-screen">
       <Sidebar />
@@ -21,102 +87,67 @@ export default function TeamPage() {
               <h1 className="text-3xl font-bold tracking-tight">Équipe</h1>
               <p className="text-muted-foreground">Gérez les membres de votre équipe et leurs permissions</p>
             </div>
-            <Button className="gap-2">
-              <UserPlus className="h-4 w-4" />
-              Inviter un membre
-            </Button>
+            <InviteMemberDialog />
           </div>
 
           <div className="grid gap-6 md:grid-cols-3">
             <Card className="p-6">
               <div className="text-center space-y-2">
-                <p className="text-4xl font-bold">5</p>
+                <p className="text-4xl font-bold">{members.length}</p>
                 <p className="text-sm text-muted-foreground">Membres actifs</p>
               </div>
             </Card>
             <Card className="p-6">
               <div className="text-center space-y-2">
-                <p className="text-4xl font-bold">2</p>
+                <p className="text-4xl font-bold">0</p>
                 <p className="text-sm text-muted-foreground">Invitations en attente</p>
               </div>
             </Card>
             <Card className="p-6">
               <div className="text-center space-y-2">
-                <p className="text-4xl font-bold">3</p>
+                <p className="text-4xl font-bold">{new Set(members.map(m => m.role)).size}</p>
                 <p className="text-sm text-muted-foreground">Rôles différents</p>
               </div>
             </Card>
           </div>
 
-          <Card className="p-6 space-y-6">
-            <div>
-              <h3 className="text-lg font-semibold mb-2">Membres de l'équipe</h3>
-              <p className="text-sm text-muted-foreground">Gérez les accès et permissions de vos collaborateurs</p>
-            </div>
-            <div className="space-y-3">
-              <TeamMember
-                name="Jean Dupont"
-                email="jean@entreprise.com"
-                role="Admin"
-                roleColor="destructive"
-                initials="JD"
-              />
-              <TeamMember
-                name="Marie Martin"
-                email="marie@entreprise.com"
-                role="Auditeur"
-                roleColor="default"
-                initials="MM"
-              />
-              <TeamMember
-                name="Pierre Dubois"
-                email="pierre@entreprise.com"
-                role="Auditeur"
-                roleColor="default"
-                initials="PD"
-              />
-              <TeamMember
-                name="Sophie Laurent"
-                email="sophie@entreprise.com"
-                role="Lecteur"
-                roleColor="secondary"
-                initials="SL"
-              />
-              <TeamMember
-                name="Thomas Bernard"
-                email="thomas@entreprise.com"
-                role="Lecteur"
-                roleColor="secondary"
-                initials="TB"
-              />
-            </div>
-          </Card>
-
-          <Card className="p-6 space-y-6">
-            <div>
-              <h3 className="text-lg font-semibold mb-2">Invitations en attente</h3>
-              <p className="text-sm text-muted-foreground">Membres invités en attente d'acceptation</p>
-            </div>
-            <div className="space-y-3">
-              <PendingInvite
-                email="julie@entreprise.com"
-                role="Auditeur"
-                sentDate="Il y a 2 jours"
-              />
-              <PendingInvite
-                email="lucas@entreprise.com"
-                role="Lecteur"
-                sentDate="Il y a 5 jours"
-              />
-            </div>
-          </Card>
+          {loading ? (
+            <Card className="p-6">
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            </Card>
+          ) : error ? (
+            <Card className="p-6">
+              <p className="text-center text-destructive">{error}</p>
+            </Card>
+          ) : (
+            <Card className="p-6 space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Membres de l'équipe</h3>
+                <p className="text-sm text-muted-foreground">Gérez les accès et permissions de vos collaborateurs</p>
+              </div>
+              <div className="space-y-3">
+                {members.map((member) => (
+                  <TeamMemberCard
+                    key={member.id}
+                    name={`${member.first_name} ${member.last_name}`}
+                    email={member.email}
+                    role={getRoleLabel(member.role)}
+                    roleColor={getRoleBadgeVariant(member.role)}
+                    initials={getInitials(member.first_name, member.last_name)}
+                  />
+                ))}
+              </div>
+            </Card>
+          )}
         </main>
       </div>
     </div>
   )
 }
 
-function TeamMember({
+function TeamMemberCard({
   name,
   email,
   role,

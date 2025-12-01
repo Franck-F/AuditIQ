@@ -104,14 +104,22 @@ export default function LandingPage() {
             Propulsé par les meilleures technologies d'IA et de fairness
           </p>
           <div className="relative overflow-hidden">
-            <div className="flex gap-6 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory px-4">
-              <TechBadge name="PyTorch" icon="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/pytorch_logo-qG7QqCh8l4UrvI8UfgU0QDicRprew1.png" />
-              <TechBadge name="Scikit-learn" icon="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Scikit_learn_logo_small.svg-M9zlUI72t0uJX6WpfY0oQ1dHCodm88.png" />
-              <TechBadge name="Pandas" icon="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Pandas_logo.svg-4Nka4VeBXGNsCHEXSVSYH2SdEYe7ol.png" />
-              <TechBadge name="Plotly" icon="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Plotly-logo-ZblsyKiY5F1Q2zLBZzyJOHwrurOMRR.png" />
-              <TechBadge name="Anthropic" icon="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Anthropic_logo.svg-NA6h5IkuBNRwdJ77gqjCpyPOGnFjNd.png" />
-              <TechBadge name="FairLearn" icon="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/FairLearnLogo-QvSI0N9IA3Ing2LUyWhRc5yFkpO4x3.png" />
-              <TechBadge name="LlamaIndex" icon="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/0_rvIJnIxJe9LwQXQf-UCPbsXG90oucGwt9d8F2f2VjVTwtnH.png" />
+            <div className="flex gap-6 animate-scroll-left">
+              <TechBadge name="PyTorch" icon="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/pytorch_logo-qG7QqCh8l4UrvI8UfgU0QDicRprew1.png" url="https://pytorch.org" />
+              <TechBadge name="Scikit-learn" icon="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Scikit_learn_logo_small.svg-M9zlUI72t0uJX6WpfY0oQ1dHCodm88.png" url="https://scikit-learn.org" />
+              <TechBadge name="Pandas" icon="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Pandas_logo.svg-4Nka4VeBXGNsCHEXSVSYH2SdEYe7ol.png" url="https://pandas.pydata.org" />
+              <TechBadge name="Plotly" icon="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Plotly-logo-ZblsyKiY5F1Q2zLBZzyJOHwrurOMRR.png" url="https://plotly.com" />
+              <TechBadge name="Anthropic" icon="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Anthropic_logo.svg-NA6h5IkuBNRwdJ77gqjCpyPOGnFjNd.png" url="https://www.anthropic.com" />
+              <TechBadge name="FairLearn" icon="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/FairLearnLogo-QvSI0N9IA3Ing2LUyWhRc5yFkpO4x3.png" url="https://fairlearn.org" />
+              <TechBadge name="LlamaIndex" icon="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/0_rvIJnIxJe9LwQXQf-UCPbsXG90oucGwt9d8F2f2VjVTwtnH.png" url="https://www.llamaindex.ai" />
+              {/* Duplicate for seamless loop */}
+              <TechBadge name="PyTorch" icon="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/pytorch_logo-qG7QqCh8l4UrvI8UfgU0QDicRprew1.png" url="https://pytorch.org" />
+              <TechBadge name="Scikit-learn" icon="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Scikit_learn_logo_small.svg-M9zlUI72t0uJX6WpfY0oQ1dHCodm88.png" url="https://scikit-learn.org" />
+              <TechBadge name="Pandas" icon="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Pandas_logo.svg-4Nka4VeBXGNsCHEXSVSYH2SdEYe7ol.png" url="https://pandas.pydata.org" />
+              <TechBadge name="Plotly" icon="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Plotly-logo-ZblsyKiY5F1Q2zLBZzyJOHwrurOMRR.png" url="https://plotly.com" />
+              <TechBadge name="Anthropic" icon="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Anthropic_logo.svg-NA6h5IkuBNRwdJ77gqjCpyPOGnFjNd.png" url="https://www.anthropic.com" />
+              <TechBadge name="FairLearn" icon="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/FairLearnLogo-QvSI0N9IA3Ing2LUyWhRc5yFkpO4x3.png" url="https://fairlearn.org" />
+              <TechBadge name="LlamaIndex" icon="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/0_rvIJnIxJe9LwQXQf-UCPbsXG90oucGwt9d8F2f2VjVTwtnH.png" url="https://www.llamaindex.ai" />
             </div>
           </div>
         </div>

@@ -9,11 +9,13 @@ import { Label } from '@/components/ui/label'
 import { Logo } from '@/components/ui/logo'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Eye, EyeOff } from 'lucide-react'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Eye, EyeOff, CheckCircle, Check } from 'lucide-react'
 
 export default function SignupPage() {
   const router = useRouter()
   const [showPassword, setShowPassword] = useState(false)
+  const [currentStep, setCurrentStep] = useState<1 | 2>(1) // Étape 1: formulaire, Étape 2: choix plan
 
   // Controlled form state
   const [firstName, setFirstName] = useState('')
@@ -23,11 +25,67 @@ export default function SignupPage() {
   const [sector, setSector] = useState('')
   const [size, setSize] = useState('')
   const [password, setPassword] = useState('')
+  
+  // F1.1.3: Profil entreprise étendu
+  const [siret, setSiret] = useState('')
+  const [address, setAddress] = useState('')
+  const [dpoContact, setDpoContact] = useState('')
+  
+  // F1.1.5: Choix du plan
+  const [plan, setPlan] = useState('freemium')
+  
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
+  // Validation du mot de passe
+  const validatePassword = (pwd: string) => {
+    const hasMinLength = pwd.length >= 8
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(pwd)
+    const hasNumber = /\d/.test(pwd)
+    const hasUpperCase = /[A-Z]/.test(pwd)
+    const hasLowerCase = /[a-z]/.test(pwd)
+    
+    return {
+      isValid: hasMinLength && hasSpecialChar && hasNumber && hasUpperCase && hasLowerCase,
+      hasMinLength,
+      hasSpecialChar,
+      hasNumber,
+      hasUpperCase,
+      hasLowerCase,
+    }
+  }
+
+  const passwordValidation = validatePassword(password)
+
+  // Validation étape 1
+  const isStep1Valid = firstName && lastName && email && company && sector && size && password && passwordValidation.isValid
+
+  async function handleFreemiumSignup() {
+    await handleSubmit('freemium')
+  }
+
+  async function handleProSignup() {
+    // Rediriger vers la page de paiement Stripe
+    router.push('/payment?plan=pro')
+  }
+
+  async function handleEnterpriseRequest() {
+    setLoading(true)
+    setError(null)
+    
+    // TODO: Envoyer une demande à l'équipe AuditIQ via API
+    try {
+      // Simuler l'envoi de la demande
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      setError('✅ Votre demande a été envoyée avec succès ! Notre équipe vous contactera sous 24h à l\'adresse : ' + email)
+    } catch (err) {
+      setError('Erreur lors de l\'envoi de la demande')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleSubmit(selectedPlan: string) {
     setError(null)
     setLoading(true)
 
@@ -41,6 +99,10 @@ export default function SignupPage() {
       company_name: company,
       sector,
       company_size: size,
+      siret,
+      company_address: address,
+      dpo_contact: dpoContact,
+      plan: selectedPlan,
     }
 
     try {
@@ -70,8 +132,8 @@ export default function SignupPage() {
         return
       }
 
-      // Server sets HttpOnly cookie for authentication. Redirect on success.
-      router.push('/dashboard')
+      // Server sets HttpOnly cookie for authentication. Redirect to onboarding.
+      router.push('/onboarding')
     } catch (err) {
       setError(String(err))
     } finally {
@@ -79,18 +141,35 @@ export default function SignupPage() {
     }
   }
 
+  function handleNextStep() {
+    if (!isStep1Valid) {
+      setError('Veuillez remplir tous les champs obligatoires')
+      return
+    }
+    setError(null)
+    setCurrentStep(2)
+  }
+
   return (
     <div className="min-h-screen flex">
-      {/* Left Side - Form */}
-      <div className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-12">
+      {/* Left Side - Form - Scrollable */}
+      <div className="flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-12 overflow-y-auto">
         <div className="w-full max-w-md space-y-8">
           <div className="text-center space-y-2">
             <Logo className="justify-center mb-6" />
-            <h1 className="text-3xl font-bold tracking-tight">Créez votre compte</h1>
-            <p className="text-muted-foreground">Commencez à auditer vos algorithmes en quelques minutes</p>
+            <h1 className="text-3xl font-bold tracking-tight">
+              {currentStep === 1 ? 'Créez votre compte' : 'Choisissez votre plan'}
+            </h1>
+            <p className="text-muted-foreground">
+              {currentStep === 1 
+                ? 'Commencez à auditer vos algorithmes en quelques minutes'
+                : 'Sélectionnez le plan qui correspond à vos besoins'}
+            </p>
           </div>
 
-          <form className="space-y-5" onSubmit={handleSubmit}>
+          {currentStep === 1 ? (
+            // ÉTAPE 1: FORMULAIRE D'INSCRIPTION
+            <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); handleNextStep(); }}>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="firstName">Prénom</Label>
@@ -171,6 +250,41 @@ export default function SignupPage() {
               </div>
             </div>
 
+            {/* F1.1.3: Profil entreprise étendu */}
+            <div className="space-y-2">
+              <Label htmlFor="siret">SIRET <span className="text-muted-foreground text-xs">(optionnel)</span></Label>
+              <Input
+                id="siret"
+                value={siret}
+                onChange={(e) => setSiret(e.target.value)}
+                placeholder="123 456 789 00012"
+                className="h-11"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="address">Adresse entreprise <span className="text-muted-foreground text-xs">(optionnel)</span></Label>
+              <Input
+                id="address"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                placeholder="123 rue de la République, 75001 Paris"
+                className="h-11"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="dpo">Contact DPO <span className="text-muted-foreground text-xs">(optionnel)</span></Label>
+              <Input
+                id="dpo"
+                value={dpoContact}
+                onChange={(e) => setDpoContact(e.target.value)}
+                placeholder="dpo@entreprise.com"
+                className="h-11"
+              />
+              <p className="text-xs text-muted-foreground">Si votre entreprise a un Délégué à la Protection des Données</p>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="password">Mot de passe</Label>
               <div className="relative">
@@ -181,6 +295,7 @@ export default function SignupPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Minimum 8 caractères"
                   className="h-11 pr-10"
+                  required
                 />
                 <button
                   type="button"
@@ -194,10 +309,34 @@ export default function SignupPage() {
                   )}
                 </button>
               </div>
+              {password && (
+                <div className="space-y-1 text-xs mt-2">
+                  <div className={`flex items-center gap-1 ${passwordValidation.hasMinLength ? 'text-green-600' : 'text-muted-foreground'}`}>
+                    <span>{passwordValidation.hasMinLength ? '✓' : '○'}</span>
+                    <span>Au moins 8 caractères</span>
+                  </div>
+                  <div className={`flex items-center gap-1 ${passwordValidation.hasUpperCase ? 'text-green-600' : 'text-muted-foreground'}`}>
+                    <span>{passwordValidation.hasUpperCase ? '✓' : '○'}</span>
+                    <span>Une lettre majuscule</span>
+                  </div>
+                  <div className={`flex items-center gap-1 ${passwordValidation.hasLowerCase ? 'text-green-600' : 'text-muted-foreground'}`}>
+                    <span>{passwordValidation.hasLowerCase ? '✓' : '○'}</span>
+                    <span>Une lettre minuscule</span>
+                  </div>
+                  <div className={`flex items-center gap-1 ${passwordValidation.hasNumber ? 'text-green-600' : 'text-muted-foreground'}`}>
+                    <span>{passwordValidation.hasNumber ? '✓' : '○'}</span>
+                    <span>Un chiffre</span>
+                  </div>
+                  <div className={`flex items-center gap-1 ${passwordValidation.hasSpecialChar ? 'text-green-600' : 'text-muted-foreground'}`}>
+                    <span>{passwordValidation.hasSpecialChar ? '✓' : '○'}</span>
+                    <span>Un caractère spécial (!@#$%^&*...)</span>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex items-start space-x-2">
-              <Checkbox id="terms" className="mt-1" />
+              <Checkbox id="terms" className="mt-1" required />
               <label
                 htmlFor="terms"
                 className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
@@ -213,8 +352,8 @@ export default function SignupPage() {
               </label>
             </div>
 
-            <Button type="submit" className="w-full h-11 text-base glow-primary" disabled={loading}>
-              {loading ? 'Création...' : 'Créer mon compte'}
+            <Button type="submit" className="w-full h-11 text-base glow-primary" disabled={!isStep1Valid}>
+              Suivant
             </Button>
 
             {error && (
@@ -222,42 +361,201 @@ export default function SignupPage() {
                 {error}
               </p>
             )}
-
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-border" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">
-                  Ou s'inscrire avec
-                </span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-3">
-              <Button variant="outline" className="h-11" type="button">
-                <img 
-                  src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-iX9UGe131WleCUasf7qjg2thc6Wi6s.png" 
-                  alt="Google" 
-                  className="h-5 w-auto"
-                />
-              </Button>
-              <Button variant="outline" className="h-11" type="button">
-                <img 
-                  src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-TXyB1H5UL38Cd2ucnrBLnkF3XEd3fJ.png" 
-                  alt="Microsoft" 
-                  className="h-5 w-auto"
-                />
-              </Button>
-              <Button variant="outline" className="h-11" type="button">
-                <img 
-                  src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-GLZgyggMq90d5POLFrkYrgRtMSoZ4L.png" 
-                  alt="AWS" 
-                  className="h-5 w-auto"
-                />
-              </Button>
-            </div>
           </form>
+          ) : (
+            // ÉTAPE 2: CHOIX DU PLAN
+            <div className="space-y-6">
+              <div className="space-y-4">
+                {/* Plan Freemium */}
+                <div className="rounded-xl border-2 border-border hover:border-primary/50 p-6 space-y-4 transition-all">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h3 className="text-xl font-bold">Freemium</h3>
+                      <p className="text-3xl font-bold text-primary mt-2">Gratuit</p>
+                    </div>
+                    <span className="px-3 py-1 bg-primary/10 text-primary text-xs font-semibold rounded-full">
+                      Idéal pour démarrer
+                    </span>
+                  </div>
+                  <ul className="space-y-2 text-sm">
+                    <li className="flex items-center gap-2">
+                      <Check className="h-4 w-4 text-primary" />
+                      <span>1 audit par mois</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-primary" />
+                      <span>Rapports basiques PDF</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-primary" />
+                      <span>Support communautaire</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-primary" />
+                      <span>Documentation complète</span>
+                    </li>
+                  </ul>
+                  <Button 
+                    onClick={handleFreemiumSignup} 
+                    className="w-full" 
+                    size="lg"
+                    disabled={loading}
+                  >
+                    {loading ? 'Inscription...' : 'Commencer gratuitement'}
+                  </Button>
+                </div>
+
+                {/* Plan Pro */}
+                <div className="rounded-xl border-2 border-primary p-6 space-y-4 bg-primary/5 relative">
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-primary text-white text-xs font-semibold rounded-full">
+                    Le plus populaire
+                  </span>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h3 className="text-xl font-bold">Pro</h3>
+                      <p className="text-3xl font-bold text-primary mt-2">49€ <span className="text-base font-normal text-muted-foreground">/mois</span></p>
+                    </div>
+                  </div>
+                  <ul className="space-y-2 text-sm">
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-primary" />
+                      <span><strong>Audits illimités</strong></span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-primary" />
+                      <span>Rapports avancés avec recommandations IA</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-primary" />
+                      <span>API REST pour intégration</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-primary" />
+                      <span>Support prioritaire (&lt; 24h)</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-primary" />
+                      <span>Exports multiples (PDF, Excel, JSON)</span>
+                    </li>
+                  </ul>
+                  <Button 
+                    onClick={handleProSignup} 
+                    className="w-full glow-primary" 
+                    size="lg"
+                    disabled={loading}
+                  >
+                    Procéder au paiement
+                  </Button>
+                  <p className="text-xs text-center text-muted-foreground">
+                    Sans engagement • Résiliation à tout moment
+                  </p>
+                </div>
+
+                {/* Plan Enterprise */}
+                <div className="rounded-xl border-2 border-border hover:border-primary/50 p-6 space-y-4 transition-all">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h3 className="text-xl font-bold">Enterprise</h3>
+                      <p className="text-3xl font-bold text-primary mt-2">Sur mesure</p>
+                    </div>
+                    <span className="px-3 py-1 bg-secondary/10 text-secondary text-xs font-semibold rounded-full">
+                      Contact commercial
+                    </span>
+                  </div>
+                  <ul className="space-y-2 text-sm">
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-primary" />
+                      <span>Tout du plan Pro +</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-primary" />
+                      <span><strong>Déploiement on-premise possible</strong></span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-primary" />
+                      <span>SLA garanti 99.9%</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-primary" />
+                      <span>Account manager dédié</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-primary" />
+                      <span>Formation sur site</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-primary" />
+                      <span>Personnalisation des métriques</span>
+                    </li>
+                  </ul>
+                  <Button 
+                    onClick={handleEnterpriseRequest} 
+                    variant="outline"
+                    className="w-full" 
+                    size="lg"
+                  >
+                    Demander un devis
+                  </Button>
+                  <p className="text-xs text-center text-muted-foreground">
+                    Notre équipe vous contactera sous 24h
+                  </p>
+                </div>
+              </div>
+
+              {error && (
+                <p className="text-sm text-center text-primary mt-2" role="alert">
+                  {error}
+                </p>
+              )}
+
+              <Button 
+                onClick={() => setCurrentStep(1)} 
+                variant="ghost" 
+                className="w-full"
+              >
+                ← Retour
+              </Button>
+            </div>
+          )}
+
+          {currentStep === 1 && (
+            <>
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-border" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">
+                    Ou s'inscrire avec
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <Button variant="outline" className="h-11" type="button">
+                  <img 
+                    src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-iX9UGe131WleCUasf7qjg2thc6Wi6s.png" 
+                    alt="Google" 
+                    className="h-5 w-auto"
+                  />
+                </Button>
+                <Button variant="outline" className="h-11" type="button">
+                  <img 
+                    src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-TXyB1H5UL38Cd2ucnrBLnkF3XEd3fJ.png" 
+                    alt="Microsoft" 
+                    className="h-5 w-auto"
+                  />
+                </Button>
+                <Button variant="outline" className="h-11" type="button">
+                  <img 
+                    src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/image-GLZgyggMq90d5POLFrkYrgRtMSoZ4L.png" 
+                    alt="AWS" 
+                    className="h-5 w-auto"
+                  />
+                </Button>
+              </div>
+            </>
+          )}
 
           <p className="text-center text-sm text-muted-foreground">
             Vous avez déjà un compte ?{' '}
@@ -268,16 +566,16 @@ export default function SignupPage() {
 
           <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
             <p className="text-sm text-center">
-              <strong className="text-primary">14 jours d'essai gratuit</strong> - Aucune carte bancaire requise
+              <strong className="text-primary">Plan Freemium disponible</strong> - Aucune carte bancaire requise
             </p>
           </div>
         </div>
       </div>
 
-      {/* Right Side - Benefits */}
-      <div className="hidden lg:flex lg:flex-1 bg-gradient-to-br from-secondary/20 via-primary/20 to-background relative overflow-hidden">
+      {/* Right Side - Benefits - Fixed and centered */}
+      <div className="hidden lg:flex lg:flex-1 bg-gradient-to-br from-secondary/20 via-primary/20 to-background relative">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,rgba(75,195,215,0.1),transparent_50%)]" />
-        <div className="relative flex flex-col justify-center p-12 space-y-8">
+        <div className="relative flex flex-col justify-center p-12 space-y-8 sticky top-0 h-screen overflow-y-auto">
           <div className="space-y-4">
             <h2 className="text-3xl font-bold">Pourquoi Audit-IQ ?</h2>
             <p className="text-muted-foreground text-lg">

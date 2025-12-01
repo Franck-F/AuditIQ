@@ -1,6 +1,6 @@
 const DEFAULT_API_URL =
   (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_API_URL) ||
-  'http://localhost:8001'
+  'http://localhost:8000'
 
 export class ApiError extends Error {
   readonly status: number
@@ -36,11 +36,26 @@ export async function apiFetch<TResponse = unknown>(
   const body = isJson ? await response.json().catch(() => null) : await response.text()
 
   if (!response.ok) {
-    const message =
-      (body && typeof body === 'object' && 'detail' in body && String(body.detail)) ||
-      (typeof body === 'string' && body) ||
-      response.statusText ||
-      'Erreur API'
+    // Extraction sécurisée du message d'erreur
+    let message = 'Erreur API'
+    
+    if (body && typeof body === 'object' && 'detail' in body) {
+      const detail = body.detail
+      if (typeof detail === 'string') {
+        message = detail
+      } else if (Array.isArray(detail)) {
+        // Erreurs de validation Pydantic
+        message = detail.map((err: any) => err.msg || JSON.stringify(err)).join(', ')
+      } else if (typeof detail === 'object' && detail.msg) {
+        message = detail.msg
+      } else if (typeof detail === 'object') {
+        message = JSON.stringify(detail)
+      }
+    } else if (typeof body === 'string' && body) {
+      message = body
+    } else if (response.statusText) {
+      message = response.statusText
+    }
 
     throw new ApiError(message, response.status, body ?? undefined)
   }

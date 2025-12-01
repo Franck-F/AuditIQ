@@ -9,6 +9,20 @@ import { Logo } from '@/components/ui/logo'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Eye, EyeOff } from 'lucide-react'
 
+// Helper pour extraire le message d'erreur
+function getErrorMessage(data: any): string {
+  if (typeof data?.detail === 'string') {
+    return data.detail
+  }
+  if (Array.isArray(data?.detail)) {
+    return data.detail.map((err: any) => err.msg || JSON.stringify(err)).join(', ')
+  }
+  if (typeof data?.detail === 'object') {
+    return data.detail.msg || JSON.stringify(data.detail)
+  }
+  return 'Erreur inconnue'
+}
+
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
 
@@ -16,45 +30,54 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [isLocked, setIsLocked] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
     setLoading(true)
 
-    const API_URL = (process.env.NEXT_PUBLIC_API_URL as string) || 'http://localhost:8001'
-
-    const form = new URLSearchParams()
-    form.append('username', email)
-    form.append('password', password)
+    const API_URL = (process.env.NEXT_PUBLIC_API_URL as string) || 'http://localhost:8000'
 
     try {
       const res = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: form.toString(),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email,
+          password: password
+        }),
+        credentials: 'include', // Important pour les cookies
       })
 
-      if (!res.ok) {
-        const body = await res.text().catch(() => null)
-        let parsed: any = null
-        try { parsed = body ? JSON.parse(body) : null } catch { parsed = null }
+      const data = await res.json()
 
-        if (parsed) {
-          if (parsed.detail) setError(typeof parsed.detail === 'string' ? parsed.detail : JSON.stringify(parsed.detail))
-          else if (parsed.message) setError(parsed.message)
-          else setError(JSON.stringify(parsed))
+      if (!res.ok) {
+        // Gestion des différents codes d'erreur
+        const errorMsg = getErrorMessage(data)
+        if (res.status === 423) {
+          // Compte verrouillé
+          setIsLocked(true)
+          setError(errorMsg || 'Compte temporairement verrouillé')
+        } else if (res.status === 401) {
+          // Mauvais identifiants
+          setError(errorMsg || 'Email ou mot de passe incorrect')
+        } else if (res.status === 403) {
+          // Compte désactivé
+          setError(errorMsg || 'Compte désactivé. Contactez le support.')
         } else {
-          setError(body || 'Erreur lors de la connexion')
+          setError(errorMsg || 'Erreur lors de la connexion')
         }
         setLoading(false)
         return
       }
 
-      // On success, backend sets HttpOnly cookie. Redirect.
+      // Connexion réussie
+      console.log('Connexion réussie:', data.user)
       window.location.href = '/dashboard'
     } catch (err) {
-      setError(String(err))
+      setError('Erreur de connexion au serveur. Vérifiez que le backend est démarré.')
+      console.error('Erreur de connexion:', err)
     } finally {
       setLoading(false)
     }
@@ -124,12 +147,29 @@ export default function LoginPage() {
               </label>
             </div>
 
-            <Button type="submit" className="w-full h-11 text-base glow-primary" disabled={loading}>
-              {loading ? 'Connexion...' : 'Se connecter'}
+            <Button type="submit" className="w-full h-11 text-base glow-primary" disabled={loading || isLocked}>
+              {loading ? 'Connexion...' : isLocked ? 'Compte verrouillé' : 'Se connecter'}
             </Button>
 
             {error && (
-              <p className="text-sm text-red-600 mt-2" role="alert">{error}</p>
+              <div className={`rounded-lg border p-4 ${isLocked ? 'bg-destructive/10 border-destructive/50' : 'bg-destructive/10 border-destructive/50'}`}>
+                <div className="flex items-start gap-3">
+                  <div className={`rounded-full p-1 ${isLocked ? 'bg-destructive' : 'bg-destructive'}`}>
+                    <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-destructive">{error}</p>
+                    {isLocked && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Votre compte a été temporairement verrouillé pour des raisons de sécurité. 
+                        Veuillez réessayer dans quelques minutes.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
             )}
 
             <div className="relative">

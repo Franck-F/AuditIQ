@@ -4,15 +4,15 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Logo } from '@/components/ui/logo'
 import { cn } from '@/lib/utils'
-import { AuditIqIcon } from '@/components/ui/audit-iq-icon'
-import { LayoutDashboard, Upload, FileText, Settings, Users, Shield, Bell, HelpCircle, ChevronLeft, ChevronRight, User } from 'lucide-react'
+import { LayoutDashboard, Upload, FileText, Settings, Users, Shield, Bell, HelpCircle, ChevronLeft, ChevronRight, User, FileCheck, Cable } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 const navigation = [
   { name: 'Tableau de bord', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Audits', href: '/dashboard/audits', icon: AuditIqIcon },
+  { name: 'Audits', href: '/dashboard/audits', icon: FileCheck },
   { name: 'Upload données', href: '/dashboard/upload', icon: Upload },
+  { name: 'Connexions', href: '/dashboard/connections', icon: Cable },
   { name: 'Rapports', href: '/dashboard/reports', icon: FileText },
   { name: 'Conformité', href: '/dashboard/compliance', icon: Shield },
   { name: 'Équipe', href: '/dashboard/team', icon: Users },
@@ -25,9 +25,44 @@ const bottomNavigation = [
   { name: 'Aide', href: '/dashboard/help', icon: HelpCircle },
 ]
 
+interface UserProfile {
+  first_name: string
+  last_name: string
+  email: string
+}
+
 export function Sidebar() {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
+
+  useEffect(() => {
+    fetchUserProfile()
+  }, [])
+
+  const fetchUserProfile = async () => {
+    try {
+      const res = await fetch('/api/auth/me', {
+        credentials: 'include'
+      })
+      
+      if (res.ok) {
+        const data = await res.json()
+        setUserProfile({
+          first_name: data.first_name,
+          last_name: data.last_name,
+          email: data.email
+        })
+      }
+    } catch (err) {
+      console.error('Erreur lors du chargement du profil:', err)
+    }
+  }
+
+  const getInitials = () => {
+    if (!userProfile) return 'U'
+    return `${userProfile.first_name.charAt(0)}${userProfile.last_name.charAt(0)}`.toUpperCase()
+  }
 
   return (
     <aside className={cn(
@@ -93,15 +128,17 @@ export function Sidebar() {
         </div>
 
         {/* User Profile */}
-        {!collapsed && (
+        {!collapsed && userProfile && (
           <div className="border-t border-border p-4">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold">
-                JD
+                {getInitials()}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">Jean Dupont</p>
-                <p className="text-xs text-muted-foreground truncate">jean@entreprise.com</p>
+                <p className="text-sm font-medium truncate">
+                  {userProfile.first_name} {userProfile.last_name}
+                </p>
+                <p className="text-xs text-muted-foreground truncate">{userProfile.email}</p>
               </div>
             </div>
           </div>

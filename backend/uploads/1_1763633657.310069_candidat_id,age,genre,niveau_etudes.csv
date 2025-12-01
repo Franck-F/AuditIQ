@@ -1,0 +1,21 @@
+candidat_id,age,genre,niveau_etudes,annees_experience,score_technique,langue_etrangere,region,recommande_entretien
+1,28,F,Master,3,85,Oui,Ile-de-France,1
+2,45,H,Licence,15,78,Non,Auvergne-Rhône-Alpes,0
+3,32,F,Doctorat,5,92,Oui,Ile-de-France,1
+4,38,H,Master,8,88,Oui,Provence-Alpes-Côte d'Azur,1
+5,25,F,Licence,1,65,Non,Bretagne,0
+6,52,H,Licence,20,72,Non,Nouvelle-Aquitaine,0
+7,29,F,Master,4,90,Oui,Ile-de-France,1
+8,41,H,Master,12,82,Oui,Occitanie,1
+9,26,F,Licence,2,70,Non,Hauts-de-France,0
+10,48,H,Master,18,75,Non,Grand Est,0
+11,31,F,Master,6,87,Oui,Ile-de-France,1
+12,36,H,Doctorat,9,95,Oui,Ile-de-France,1
+13,27,F,Licence,2,68,Non,Pays de la Loire,0
+14,44,H,Master,14,80,Oui,Bourgogne-Franche-Comté,1
+15,30,F,Master,5,89,Oui,Ile-de-France,1
+16,50,H,Licence,22,71,Non,Normandie,0
+17,33,F,Master,7,91,Oui,Ile-de-France,1
+18,39,H,Master,11,83,Oui,Provence-Alpes-Côte d'Azur,1
+19,24,F,Licence,1,62,Non,Centre-Val de Loire,0
+20,46,H,Master,16,77,Non,Auvergne-Rhône-Alpes,0

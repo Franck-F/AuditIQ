@@ -1,243 +1,134 @@
 # Audit-IQ - Plateforme SaaS d'Audit de Fairness
 
-Audit-IQ est une plateforme complète permettant aux PME d'auditer leurs algorithmes décisionnels et de garantir la conformité avec l'AI Act et le RGPD.
+<div align="center">
 
-## Architecture du Projet
+![Audit-IQ Logo](public/logo.png)
 
-\`\`\`
-audit-iq/
-├── frontend/                 # Application Next.js
-│   ├── app/                 # Pages et routes
-│   │   ├── page.tsx        # Landing page
-│   │   ├── login/          # Authentification
-│   │   ├── signup/
-│   │   └── dashboard/      # Interface principale
-│   │       ├── page.tsx    # Dashboard
-│   │       ├── audits/     # Gestion des audits
-│   │       ├── upload/     # Upload de données
-│   │       ├── reports/    # Rapports
-│   │       ├── compliance/ # Conformité
-│   │       ├── team/       # Gestion d'équipe
-│   │       └── settings/   # Paramètres
-│   ├── components/
-│   │   ├── ui/             # Composants UI (shadcn)
-│   │   └── dashboard/      # Composants dashboard
-│   └── lib/                # Utilitaires
-│
-└── backend/                 # API FastAPI
-    ├── main.py             # Point d'entrée
-    ├── models/             # Modèles Pydantic
-    ├── services/           # Logique métier
-    │   ├── fairness/      # Calculs de fairness
-    │   ├── auth/          # Authentification
-    │   └── reports/       # Génération rapports
-    └── requirements.txt    # Dépendances Python
-\`\`\`
+**Garantissez la conformité et l'équité de vos algorithmes décisionnels.**
 
-## Fonctionnalités Principales
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115.0-009688.svg?style=flat&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![Next.js](https://img.shields.io/badge/Next.js-16.0-black.svg?style=flat&logo=next.js&logoColor=white)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Code Style: Black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-### Frontend (Next.js 16)
-- Landing page moderne avec design inspiré de Pinecone
-- Système d'authentification complet (login/signup/forgot-password)
-- Dashboard interactif avec KPIs et statistiques
-- Module d'upload de données (drag & drop, CSV/Excel)
-- Interface d'audit avec métriques de fairness détaillées
-- Visualisations interactives des biais
-- Génération de rapports de conformité (AI Act, RGPD)
-- Gestion d'équipe et permissions
-- Dark mode natif
+[Documentation](https://docs.audit-iq.com) • [Demo](https://demo.audit-iq.com) • [Signaler un Bug](https://github.com/Franck-F/AuditIQ/issues)
 
-### Backend (FastAPI)
-- API REST complète
-- Authentification JWT
-- Upload et traitement de datasets
-- Calcul de métriques de fairness :
-  - Demographic Parity
-  - Equal Opportunity
-  - Equalized Odds
-  - Predictive Parity
-- Détection automatique de biais
-- Génération de recommandations
-- Rapports de conformité
-- Anonymisation RGPD
-
-## Installation
-
-### Prérequis
-- Node.js 18+
-- Python 3.10+
-- npm ou yarn
-
-### Frontend
-
-\`\`\`bash
-# Installation des dépendances
-npm install
-
-# Lancement en développement
-npm run dev
-
-# Build pour production
-npm run build
-npm start
-\`\`\`
-
-Le frontend sera accessible sur `http://localhost:3000`
-
-### Backend
-
-\`\`\`bash
-# Créer un environnement virtuel
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# ou
-venv\Scripts\activate  # Windows
-
-# Installer les dépendances
-cd backend
-pip install -r requirements.txt
-
-# Lancer le serveur
-python main.py
-# ou
-uvicorn main:app --reload
-\`\`\`
-
-L'API sera accessible sur `http://localhost:8000`
-
-Documentation API : `http://localhost:8000/docs`
-
-## Technologies Utilisées
-
-### Frontend
-- **Next.js 16** - Framework React avec App Router
-- **TypeScript** - Typage statique
-- **Tailwind CSS v4** - Styling moderne
-- **shadcn/ui** - Composants UI
-- **Lucide Icons** - Icônes
-- **Recharts** - Visualisations
-- **React Hook Form** - Gestion de formulaires
-
-### Backend
-- **FastAPI** - Framework API Python moderne
-- **Pandas** - Manipulation de données
-- **NumPy** - Calculs numériques
-- **Scikit-learn** - Machine Learning
-- **FairLearn** - Métriques de fairness
-- **AIF360** - Audit de fairness avancé
-- **PyJWT** - Authentification JWT
-- **Bcrypt** - Hashing de mots de passe
-
-## Configuration
-
-### Variables d'Environnement
-
-Créer un fichier `.env.local` à la racine du frontend :
-
-\`\`\`env
-NEXT_PUBLIC_API_URL=http://localhost:8000
-\`\`\`
-
-Créer un fichier `.env` dans le dossier backend :
-
-\`\`\`env
-SECRET_KEY=your-super-secret-key-change-in-production
-DATABASE_URL=postgresql://user:password@localhost/auditiq
-REDIS_URL=redis://localhost:6379
-\`\`\`
-
-## API Endpoints
-
-### Authentification
-- `POST /api/auth/register` - Inscription
-- `POST /api/auth/login` - Connexion
-- `POST /api/auth/refresh` - Rafraîchir le token
-
-### Audits
-- `GET /api/audits` - Liste des audits
-- `GET /api/audits/{id}` - Détails d'un audit
-- `POST /api/audits/create` - Créer un audit
-- `GET /api/audits/{id}/recommendations` - Recommandations
-
-### Données
-- `POST /api/data/upload` - Upload de dataset
-- `GET /api/data/{id}` - Récupérer un dataset
-
-### Rapports
-- `GET /api/reports/generate/{audit_id}` - Générer un rapport
-- `GET /api/reports/{id}/download` - Télécharger un rapport
-
-### Conformité
-- `GET /api/compliance/status` - État de conformité global
-
-## Métriques de Fairness
-
-### Demographic Parity
-Mesure si les décisions sont distribuées équitablement entre les groupes.
-\`\`\`
-P(Ŷ=1|A=a) ≈ P(Ŷ=1|A=b)
-\`\`\`
-
-### Equal Opportunity
-Vérifie l'égalité des taux de vrais positifs entre groupes.
-\`\`\`
-P(Ŷ=1|Y=1,A=a) ≈ P(Ŷ=1|Y=1,A=b)
-\`\`\`
-
-### Equalized Odds
-Garantit l'égalité des TPR et FPR entre groupes.
-
-### Predictive Parity
-Assure que la précision des prédictions positives est similaire.
-
-## Conformité Réglementaire
-
-### AI Act (Règlement européen sur l'IA)
-- Article 10 : Transparence et documentation
-- Article 13 : Gouvernance des données
-- Article 14 : Enregistrement des activités
-- Article 15 : Précision et robustesse
-
-### RGPD
-- Article 22 : Décisions automatisées
-- Article 5 : Minimisation des données
-- Article 25 : Privacy by design
-- Article 32 : Sécurité du traitement
-
-## Sécurité
-
-- Chiffrement AES-256 des données au repos
-- TLS 1.3 pour les données en transit
-- Authentification JWT avec refresh tokens
-- Hashing bcrypt pour les mots de passe
-- Anonymisation automatique des données sensibles
-- Suppression automatique après 30 jours
-- Logs d'audit complets
-
-## Contribution
-
-Ce projet est un prototype démontrant les capacités d'une plateforme d'audit de fairness.
-Pour une utilisation en production, des améliorations sont nécessaires :
-
-- Base de données PostgreSQL
-- Cache Redis
-- File d'attente Celery pour traitements longs
-- Stockage S3 pour les fichiers
-- Monitoring (Sentry, DataDog)
-- Tests unitaires et d'intégration
-- CI/CD Pipeline
-- Documentation API complète
-
-## Licence
-
-MIT License - voir LICENSE
-
-## Support
-
-Pour toute question ou support :
-- Email : support@audit-iq.com
-- Documentation : https://docs.audit-iq.com
+</div>
 
 ---
 
-Développé avec ❤️ pour garantir l'équité des algorithmes IA
+## 📋 À Propos
+
+**Audit-IQ** est une solution SaaS complète conçue pour aider les entreprises à auditer leurs modèles d'intelligence artificielle. En conformité avec l'**AI Act** et le **RGPD**, notre plateforme permet de détecter, mesurer et atténuer les biais algorithmiques pour garantir des décisions justes et transparentes.
+
+## 🚀 Fonctionnalités Clés
+
+| Fonctionnalité | Description |
+| :--- | :--- |
+| **📊 Dashboard Intuitif** | Visualisez les performances et les métriques de fairness en temps réel. |
+| **🔍 Audit de Fairness** | Calcul automatique de métriques (Demographic Parity, Equal Opportunity, etc.). |
+| **⚖️ Conformité AI Act** | Génération de rapports détaillés pour répondre aux exigences réglementaires. |
+| **🛡️ Sécurité & Privacy** | Anonymisation des données et conformité RGPD native. |
+| **📈 Détection de Biais** | Identification proactive des biais dans vos datasets et modèles. |
+| **👥 Gestion d'Équipe** | Collaboration facilitée avec gestion fine des permissions. |
+
+## 🛠️ Stack Technique
+
+### Frontend
+-   ![Next.js](https://img.shields.io/badge/-Next.js_16-000000?style=flat-square&logo=next.js&logoColor=white) **Framework React**
+-   ![TypeScript](https://img.shields.io/badge/-TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white) **Typage Statique**
+-   ![Tailwind CSS](https://img.shields.io/badge/-Tailwind_CSS_v4-38B2AC?style=flat-square&logo=tailwind-css&logoColor=white) **Styling**
+-   ![Shadcn/UI](https://img.shields.io/badge/-Shadcn/UI-000000?style=flat-square&logo=shadcnui&logoColor=white) **Composants UI**
+
+### Backend
+-   ![FastAPI](https://img.shields.io/badge/-FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white) **API Framework**
+-   ![Python](https://img.shields.io/badge/-Python_3.10+-3776AB?style=flat-square&logo=python&logoColor=white) **Langage**
+-   ![Pandas](https://img.shields.io/badge/-Pandas-150458?style=flat-square&logo=pandas&logoColor=white) **Data Processing**
+-   ![Scikit-Learn](https://img.shields.io/badge/-Scikit_Learn-F7931E?style=flat-square&logo=scikit-learn&logoColor=white) **Machine Learning**
+
+## 🏗️ Architecture
+
+```mermaid
+graph TD
+    User[Utilisateur] -->|HTTPS| Frontend[Next.js App]
+    Frontend -->|API REST| Backend[FastAPI Backend]
+    Backend -->|Auth| DB[(PostgreSQL)]
+    Backend -->|Cache| Redis[(Redis)]
+    Backend -->|ML Processing| ML[Fairness Engine]
+    ML -->|Metrics| Backend
+```
+
+## ⚡ Installation Rapide
+
+### Prérequis
+*   Node.js 18+
+*   Python 3.10+
+*   npm ou yarn
+
+### 1. Frontend
+
+```bash
+cd app
+npm install
+npm run dev
+# Accessible sur http://localhost:3000
+```
+
+### 2. Backend
+
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+python main.py
+# API accessible sur http://localhost:8000
+# Docs: http://localhost:8000/docs
+```
+
+## ⚙️ Configuration
+
+Créez les fichiers `.env` nécessaires :
+
+**Frontend (`.env.local`)**
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
+
+**Backend (`backend/.env`)**
+```env
+SECRET_KEY=votre_cle_secrete
+DATABASE_URL=postgresql://user:pass@localhost/auditiq
+```
+
+## 📚 Documentation API
+
+L'API est documentée automatiquement via Swagger UI. Une fois le backend lancé, visitez :
+`http://localhost:8000/docs`
+
+Principaux endpoints :
+*   `/api/auth/*` : Authentification
+*   `/api/audits/*` : Gestion des audits
+*   `/api/reports/*` : Génération de rapports
+
+## 🤝 Contribuer
+
+Les contributions sont les bienvenues ! Veuillez consulter notre [Guide de Contribution](CONTRIBUTING.md) pour commencer.
+
+1.  Forkez le projet
+2.  Créez votre branche (`git checkout -b feature/AmazingFeature`)
+3.  Committez vos changements (`git commit -m 'Add some AmazingFeature'`)
+4.  Pushez vers la branche (`git push origin feature/AmazingFeature`)
+5.  Ouvrez une Pull Request
+
+## 📄 Licence
+
+Distribué sous la licence MIT. Voir `LICENSE` pour plus d'informations.
+
+---
+
+<div align="center">
+  <p>Développé avec ❤️ par l'équipe Franck-F</p>
+</div>
