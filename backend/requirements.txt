@@ -23,6 +23,8 @@ pandas
 numpy
 fairlearn
 scikit-learn
+tabulate
+openpyxl
 
 # Reporting
 reportlab
