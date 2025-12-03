@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Plus, Search, Filter, BarChart3, Clock, ArrowRight } from 'lucide-react'
-import { auditService } from '@/services/auditService'
+import { auditService } from '../../../services/auditService'
 
 export default function AuditsPage() {
   const [audits, setAudits] = useState<any[]>([])

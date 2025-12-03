@@ -155,6 +155,7 @@ export default function SignupPage() {
   return (
     <div className="min-h-screen grid lg:grid-cols-2">
       {/* Left Content Section - Animated Characters */}
+      {/* Left Content Section - Animated Characters */}
       <div className="relative hidden lg:flex flex-col justify-between bg-gradient-to-br from-gray-50 via-gray-100 to-gray-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-12 text-foreground overflow-hidden fixed h-screen">
         <div className="relative z-20">
           <div className="flex items-center gap-2 text-lg font-semibold">
@@ -193,8 +194,8 @@ export default function SignupPage() {
       </div>
 
       {/* Right Side - Form - Scrollable */}
-      <div className="flex items-center justify-center p-8 bg-background overflow-y-auto h-screen">
-        <div className="w-full max-w-md space-y-8">
+      <div className="flex flex-col p-8 pt-32 bg-background overflow-y-auto h-screen" data-lenis-prevent>
+        <div className="w-full max-w-md space-y-8 mx-auto">
           <div className="text-center space-y-2">
             <div className="lg:hidden flex items-center justify-center gap-2 text-lg font-semibold mb-6">
               <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center">

@@ -2,6 +2,12 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Paperclip, Link, Code, Mic, Send, Info, Bot, X } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+
+import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
 
 interface Message {
   id: string;
@@ -16,9 +22,71 @@ const FloatingAiAssistant = () => {
   const [charCount, setCharCount] = useState(0);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const maxChars = 2000;
   const chatRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isRecording, setIsRecording] = useState(false);
+  
+  const handleFileUpload = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setMessage(prev => prev + `\n[Fichier joint: ${file.name}]`);
+      e.target.value = '';
+    }
+  };
+
+  const handleLinkClick = () => {
+    const url = prompt("Entrez l'URL du lien :");
+    if (url) {
+      setMessage(prev => prev + ` [Lien](${url})`);
+    }
+  };
+
+  const handleCodeClick = () => {
+    setMessage(prev => prev + "\n```\n// Votre code ici\n```\n");
+  };
+
+  const handleVoiceClick = () => {
+    if ('webkitSpeechRecognition' in window) {
+      if (isRecording) {
+        setIsRecording(false);
+        return;
+      }
+
+      const recognition = new (window as any).webkitSpeechRecognition();
+      recognition.continuous = false;
+      recognition.lang = 'fr-FR';
+      recognition.interimResults = false;
+
+      recognition.onstart = () => {
+        setIsRecording(true);
+      };
+
+      recognition.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        setMessage(prev => (prev + ' ' + transcript).trim());
+      };
+
+      recognition.onerror = (event: any) => {
+        console.error('Speech recognition error', event.error);
+        setIsRecording(false);
+      };
+
+      recognition.onend = () => {
+        setIsRecording(false);
+      };
+
+      recognition.start();
+    } else {
+      alert("La reconnaissance vocale n'est pas supportée par ce navigateur (essayez Chrome).");
+    }
+  };
   
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
@@ -48,8 +116,17 @@ const FloatingAiAssistant = () => {
       setCharCount(0);
       setIsLoading(true);
 
+      // Create placeholder for AI message
+      const aiMessageId = (Date.now() + 1).toString();
+      const aiMessagePlaceholder: Message = {
+        id: aiMessageId,
+        role: 'assistant',
+        content: '', // Start empty
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, aiMessagePlaceholder]);
+
       try {
-        // Call backend AI chat API
         const token = localStorage.getItem('token');
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/ai/chat`, {
           method: 'POST',
@@ -68,34 +145,59 @@ const FloatingAiAssistant = () => {
         });
 
         if (!response.ok) {
-          throw new Error('Erreur lors de la communication avec l\'API');
+          const errorData = await response.json().catch(() => ({ detail: 'Erreur inconnue' }));
+          throw new Error(errorData.detail || 'Erreur lors de la communication avec l\'API');
         }
 
-        const data = await response.json();
-        
-        const aiMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          role: 'assistant',
-          content: data.response,
-          timestamp: new Date()
-        };
-        
-        setMessages(prev => [...prev, aiMessage]);
-        
-        // TODO: Handle sources display
-        if (data.sources && data.sources.length > 0) {
-          console.log('Sources:', data.sources);
+        if (!response.body) throw new Error('ReadableStream not supported');
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        setIsLoading(false); // Stop loading spinner as soon as stream starts
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || ''; // Keep the last incomplete line in buffer
+
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            try {
+              const data = JSON.parse(line);
+              
+              if (data.type === 'sources') {
+                if (data.sources && data.sources.length > 0) {
+                  console.log('Sources:', data.sources);
+                  // TODO: Update sources state if needed
+                }
+              } else if (data.type === 'chunk') {
+                setMessages(prev => prev.map(msg => 
+                  msg.id === aiMessageId 
+                    ? { ...msg, content: msg.content + data.text }
+                    : msg
+                ));
+              } else if (data.type === 'error') {
+                console.error('Stream error:', data.error);
+              }
+            } catch (e) {
+              console.error('Error parsing stream line:', e);
+            }
+          }
         }
         
       } catch (error) {
         console.error('Erreur:', error);
-        const errorMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          role: 'assistant',
-          content: "Désolé, une erreur s'est produite. Veuillez réessayer.",
-          timestamp: new Date()
-        };
-        setMessages(prev => [...prev, errorMessage]);
+        // Remove the empty placeholder if it failed completely or add error message
+        setMessages(prev => prev.map(msg => 
+          msg.id === aiMessageId && msg.content === ''
+            ? { ...msg, content: "Désolé, une erreur s'est produite. Veuillez réessayer." }
+            : msg
+        ));
       } finally {
         setIsLoading(false);
       }
@@ -189,7 +291,7 @@ const FloatingAiAssistant = () => {
             </div>
 
             {/* Conversation History */}
-            <div className="px-6 py-4 max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+            <div className="px-6 py-4 max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent" data-lenis-prevent>
               {messages.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground text-sm">
                   <Bot className="w-12 h-12 mx-auto mb-3 opacity-30" />
@@ -202,18 +304,53 @@ const FloatingAiAssistant = () => {
                       key={msg.id}
                       className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                     >
-                      <div
-                        className={`max-w-[80%] rounded-2xl px-4 py-2 ${
-                          msg.role === 'user'
-                            ? 'bg-primary/20 text-foreground border border-primary/30'
-                            : 'bg-muted text-foreground border border-border'
-                        }`}
-                      >
-                        <p className="text-sm leading-relaxed">{msg.content}</p>
-                        <span className="text-xs text-muted-foreground mt-1 block">
-                          {msg.timestamp.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </div>
+
+
+                        <div
+                          className={`max-w-[85%] rounded-2xl px-4 py-2 ${
+                            msg.role === 'user'
+                              ? 'bg-primary/20 text-foreground border border-primary/30'
+                              : 'bg-muted text-foreground border border-border'
+                          }`}
+                        >
+                          <div className="text-sm leading-relaxed markdown-content">
+                            {msg.role === 'user' ? (
+                              <p>{msg.content}</p>
+                            ) : (
+                              <ReactMarkdown 
+
+                                remarkPlugins={[remarkGfm, remarkMath]}
+                                rehypePlugins={[rehypeKatex]}
+                                components={{
+                                  p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
+                                  a: ({node, ...props}) => <a className="text-primary underline hover:text-primary/80 font-medium" target="_blank" rel="noopener noreferrer" {...props} />,
+                                  ul: ({node, ...props}) => <ul className="list-disc pl-4 mb-2 space-y-1" {...props} />,
+                                  ol: ({node, ...props}) => <ol className="list-decimal pl-4 mb-2 space-y-1" {...props} />,
+                                  li: ({node, ...props}) => <li className="" {...props} />,
+                                  h1: ({node, ...props}) => <h1 className="text-lg font-bold mb-2 mt-4 first:mt-0" {...props} />,
+                                  h2: ({node, ...props}) => <h2 className="text-base font-bold mb-2 mt-3 first:mt-0" {...props} />,
+                                  h3: ({node, ...props}) => <h3 className="text-sm font-bold mb-1 mt-2" {...props} />,
+                                  blockquote: ({node, ...props}) => <blockquote className="border-l-2 border-primary/50 pl-3 italic my-2 text-muted-foreground" {...props} />,
+                                  code: ({node, inline, className, children, ...props}: any) => {
+                                    return inline ? (
+                                      <code className="bg-black/20 dark:bg-white/10 px-1 py-0.5 rounded text-xs font-mono" {...props}>{children}</code>
+                                    ) : (
+                                      <code className="block bg-black/20 dark:bg-white/10 p-2 rounded text-xs font-mono mb-2 overflow-x-auto" {...props}>{children}</code>
+                                    )
+                                  },
+                                  table: ({node, ...props}) => <div className="overflow-x-auto mb-2"><table className="min-w-full divide-y divide-border" {...props} /></div>,
+                                  th: ({node, ...props}) => <th className="px-2 py-1 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider bg-black/10 dark:bg-white/5" {...props} />,
+                                  td: ({node, ...props}) => <td className="px-2 py-1 text-sm border-t border-border" {...props} />,
+                                }}
+                              >
+                                {msg.content}
+                              </ReactMarkdown>
+                            )}
+                          </div>
+                          <span className="text-xs text-muted-foreground mt-1 block">
+                            {msg.timestamp.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
                     </div>
                   ))}
                   {isLoading && (
@@ -287,7 +424,16 @@ const FloatingAiAssistant = () => {
                   {/* Attachment Group */}
                   <div className="flex items-center gap-1.5 p-1 bg-zinc-800/40 rounded-xl border border-zinc-700/50">
                     {/* File Upload */}
-                    <button className="group relative p-2.5 bg-transparent border-none rounded-lg cursor-pointer transition-all duration-300 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/80 hover:scale-105 hover:-rotate-3 transform">
+                    <input 
+                      type="file" 
+                      ref={fileInputRef} 
+                      className="hidden" 
+                      onChange={handleFileChange} 
+                    />
+                    <button 
+                      onClick={handleFileUpload}
+                      className="group relative p-2.5 bg-transparent border-none rounded-lg cursor-pointer transition-all duration-300 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800/80 hover:scale-105 hover:-rotate-3 transform"
+                    >
                       <Paperclip className="w-4 h-4 transition-all duration-300 group-hover:scale-125 group-hover:-rotate-12" />
                       <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 px-3 py-2 bg-zinc-900/95 text-zinc-200 text-xs rounded-lg whitespace-nowrap opacity-0 transition-all duration-300 pointer-events-none group-hover:opacity-100 group-hover:-translate-y-1 shadow-lg border border-zinc-700/50 backdrop-blur-sm">
                         Joindre fichier
@@ -296,7 +442,10 @@ const FloatingAiAssistant = () => {
                     </button>
 
                     {/* Link */}
-                    <button className="group relative p-2.5 bg-transparent border-none rounded-lg cursor-pointer transition-all duration-300 text-zinc-500 hover:text-red-400 hover:bg-zinc-800/80 hover:scale-105 hover:rotate-6 transform">
+                    <button 
+                      onClick={handleLinkClick}
+                      className="group relative p-2.5 bg-transparent border-none rounded-lg cursor-pointer transition-all duration-300 text-zinc-500 hover:text-red-400 hover:bg-zinc-800/80 hover:scale-105 hover:rotate-6 transform"
+                    >
                       <Link className="w-4 h-4 transition-all duration-300 group-hover:scale-125 group-hover:rotate-12" />
                       <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 px-3 py-2 bg-zinc-900/95 text-zinc-200 text-xs rounded-lg whitespace-nowrap opacity-0 transition-all duration-300 pointer-events-none group-hover:opacity-100 group-hover:-translate-y-1 shadow-lg border border-zinc-700/50 backdrop-blur-sm">
                         Lien web
@@ -305,7 +454,10 @@ const FloatingAiAssistant = () => {
                     </button>
 
                     {/* Code */}
-                    <button className="group relative p-2.5 bg-transparent border-none rounded-lg cursor-pointer transition-all duration-300 text-zinc-500 hover:text-green-400 hover:bg-zinc-800/80 hover:scale-105 hover:rotate-3 transform">
+                    <button 
+                      onClick={handleCodeClick}
+                      className="group relative p-2.5 bg-transparent border-none rounded-lg cursor-pointer transition-all duration-300 text-zinc-500 hover:text-green-400 hover:bg-zinc-800/80 hover:scale-105 hover:rotate-3 transform"
+                    >
                       <Code className="w-4 h-4 transition-all duration-300 group-hover:scale-125 group-hover:-rotate-6" />
                       <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 px-3 py-2 bg-zinc-900/95 text-zinc-200 text-xs rounded-lg whitespace-nowrap opacity-0 transition-all duration-300 pointer-events-none group-hover:opacity-100 group-hover:-translate-y-1 shadow-lg border border-zinc-700/50 backdrop-blur-sm">
                         Code source
@@ -317,10 +469,13 @@ const FloatingAiAssistant = () => {
                   </div>
 
                   {/* Voice Button */}
-                  <button className="group relative p-2.5 bg-transparent border border-zinc-700/30 rounded-lg cursor-pointer transition-all duration-300 text-zinc-500 hover:text-red-400 hover:bg-zinc-800/80 hover:scale-110 hover:rotate-2 transform hover:border-red-500/30">
-                    <Mic className="w-4 h-4 transition-all duration-300 group-hover:scale-125 group-hover:-rotate-3" />
+                  <button 
+                    onClick={handleVoiceClick}
+                    className={`group relative p-2.5 bg-transparent border border-zinc-700/30 rounded-lg cursor-pointer transition-all duration-300 text-zinc-500 hover:text-red-400 hover:bg-zinc-800/80 hover:scale-110 hover:rotate-2 transform hover:border-red-500/30 ${isRecording ? 'text-red-500 border-red-500/50 animate-pulse' : ''}`}
+                  >
+                    <Mic className={`w-4 h-4 transition-all duration-300 group-hover:scale-125 group-hover:-rotate-3 ${isRecording ? 'animate-bounce' : ''}`} />
                     <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 px-3 py-2 bg-zinc-900/95 text-zinc-200 text-xs rounded-lg whitespace-nowrap opacity-0 transition-all duration-300 pointer-events-none group-hover:opacity-100 group-hover:-translate-y-1 shadow-lg border border-zinc-700/50 backdrop-blur-sm">
-                      Saisie vocale
+                      {isRecording ? 'Écoute en cours...' : 'Saisie vocale'}
                       <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-zinc-900/95"></div>
                     </div>
                   </button>

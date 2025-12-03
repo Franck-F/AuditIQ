@@ -11,6 +11,10 @@ import os
 from datetime import datetime
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+import pandas as pd
+from pathlib import Path
+
+UPLOAD_DIR = Path("uploads")
 
 from db import AsyncSessionLocal
 from models.dataset import Audit, Dataset
@@ -23,7 +27,7 @@ if not GEMINI_API_KEY:
     raise ValueError("GEMINI_API_KEY not found in environment variables")
 
 genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel('gemini-pro')
+model = genai.GenerativeModel('gemini-3-pro-preview')
 
 # Rate limiter
 limiter = Limiter(key_func=get_remote_address)
@@ -51,6 +55,7 @@ class Source(BaseModel):
 class ChatResponse(BaseModel):
     response: str
     sources: List[Source] = []
+
 
 
 async def get_user_context(user_id: int, db: AsyncSession) -> str:
@@ -88,7 +93,30 @@ async def get_user_context(user_id: int, db: AsyncSession) -> str:
             if dataset.row_count:
                 context += f"  Lignes: {dataset.row_count}\n"
             if dataset.column_count:
-                context += f"  Colonnes: {dataset.column_count}\n"
+                context += f"  Colonnes (Total): {dataset.column_count}\n"
+            
+            # Read file content preview
+            try:
+                file_path = UPLOAD_DIR / dataset.filename
+                if file_path.exists():
+                    if dataset.filename.endswith('.csv'):
+                        # Try different encodings if utf-8 fails
+                        try:
+                            df = pd.read_csv(file_path, nrows=5)
+                        except UnicodeDecodeError:
+                            df = pd.read_csv(file_path, nrows=5, encoding='latin-1')
+                    elif dataset.filename.endswith(('.xls', '.xlsx')):
+                        df = pd.read_excel(file_path, nrows=5)
+                    else:
+                        df = None
+                    
+                    if df is not None:
+                        context += f"  Noms des colonnes: {', '.join(df.columns)}\n"
+                        context += f"  Aperçu des données (5 premières lignes):\n"
+                        context += df.to_markdown(index=False) + "\n"
+            except Exception as e:
+                print(f"Error reading dataset {dataset.id}: {e}")
+                
             context += "\n"
     
     return context
@@ -104,6 +132,12 @@ RÔLE:
 - Fournir des recommandations de mitigation
 - Expliquer la conformité AI Act et RGPD
 
+TON ET PERSONNALITÉ:
+- Professionnel, empathique et encourageant.
+- Tu es un collègue expert, pas un robot froid.
+- Évite les répétitions : ne dis pas "Bonjour" ou ne te présente pas à chaque message si la conversation est déjà en cours.
+- Sois direct et pertinent.
+
 MÉTRIQUES DE FAIRNESS:
 - Demographic Parity: Égalité des taux de prédiction positive entre groupes
 - Equal Opportunity: Égalité des taux de vrais positifs
@@ -115,6 +149,7 @@ STYLE:
 - Utilise des exemples concrets
 - Cite des sources quand possible
 - Fournis des liens vers documentation officielle
+- Utilise le format Markdown pour structurer tes réponses (gras, listes, tableaux).
 
 SOURCES:
 - Pour l'AI Act: https://artificialintelligenceact.eu/
@@ -130,7 +165,7 @@ async def get_db_session():
         yield session
 
 
-@router.post("/chat", response_model=ChatResponse)
+@router.post("/chat")
 @limiter.limit("20/minute")  # Rate limit: 20 requests per minute
 async def chat(
     request: Request,
@@ -139,10 +174,10 @@ async def chat(
     db: AsyncSession = Depends(get_db_session)
 ):
     """
-    AI Chat endpoint with Gemini
+    AI Chat endpoint with Gemini (Streaming)
     - Retrieves user context from database
     - Uses Gemini to generate intelligent responses
-    - Provides sources and links
+    - Streams response chunks in NDJSON format
     """
     try:
         # Get user context
@@ -163,10 +198,7 @@ async def chat(
         # Build prompt with context
         full_prompt = f"{create_system_prompt()}\n\n{user_context}\n\nQuestion: {chat_request.message}"
         
-        # Get response from Gemini
-        response = chat.send_message(full_prompt)
-        
-        # Extract sources (basic implementation - can be enhanced)
+        # Prepare sources
         sources = []
         
         # Add audit sources if relevant
@@ -177,37 +209,55 @@ async def chat(
             )
             audits = result.scalars().all()
             for audit in audits:
-                sources.append(Source(
-                    title=f"Audit: {audit.name or f'#{audit.id}'}",
-                    url=f"/dashboard/audits/{audit.id}",
-                    type="audit"
-                ))
+                sources.append({
+                    "title": f"Audit: {audit.name or f'#{audit.id}'}",
+                    "url": f"/dashboard/audits/{audit.id}",
+                    "type": "audit"
+                })
         
         # Add web sources for compliance questions
         if any(keyword in chat_request.message.lower() for keyword in ['ai act', 'rgpd', 'conformité', 'compliance']):
-            sources.append(Source(
-                title="AI Act - Règlement européen sur l'IA",
-                url="https://artificialintelligenceact.eu/",
-                type="web"
-            ))
-            sources.append(Source(
-                title="CNIL - Protection des données",
-                url="https://www.cnil.fr/",
-                type="web"
-            ))
+            sources.append({
+                "title": "AI Act - Règlement européen sur l'IA",
+                "url": "https://artificialintelligenceact.eu/",
+                "type": "web"
+            })
+            sources.append({
+                "title": "CNIL - Protection des données",
+                "url": "https://www.cnil.fr/",
+                "type": "web"
+            })
         
         # Add fairness documentation
         if any(keyword in chat_request.message.lower() for keyword in ['fairness', 'équité', 'biais', 'demographic', 'parity']):
-            sources.append(Source(
-                title="Fairlearn - Documentation",
-                url="https://fairlearn.org/",
-                type="web"
-            ))
-        
-        return ChatResponse(
-            response=response.text,
-            sources=sources
-        )
+            sources.append({
+                "title": "Fairlearn - Documentation",
+                "url": "https://fairlearn.org/",
+                "type": "web"
+            })
+
+        async def generate():
+            import json
+            # Send sources first
+            yield json.dumps({"type": "sources", "sources": sources}) + "\n"
+            
+            # Stream response from Gemini
+            try:
+                # Use async streaming if available, otherwise synchronous in thread
+                # Assuming google-generativeai supports async
+                response = await chat.send_message_async(full_prompt, stream=True)
+                async for chunk in response:
+                    if chunk.text:
+                        yield json.dumps({"type": "chunk", "text": chunk.text}) + "\n"
+            except Exception as e:
+                print(f"Error streaming from Gemini: {e}")
+                yield json.dumps({"type": "error", "error": str(e)}) + "\n"
+
+        from fastapi.responses import StreamingResponse
+        return StreamingResponse(generate(), media_type="application/x-ndjson")
         
     except Exception as e:
+        import traceback
+        traceback.print_exc()
+        print(f"❌ Error in AI chat: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Erreur lors de la génération de la réponse: {str(e)}")

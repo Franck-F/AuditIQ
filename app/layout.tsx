@@ -4,6 +4,7 @@ import { Analytics } from '@vercel/analytics/next'
 import { Navbar } from '@/components/navbar'
 import { Toaster } from '@/components/ui/toaster'
 import { FloatingAiAssistant } from '@/components/glowing-ai-chat-assistant'
+import { SmoothScroll } from '@/components/smooth-scroll'
 import './globals.css'
 
 const _geist = Geist({ subsets: ["latin"] });
@@ -29,11 +30,13 @@ export default function RootLayout({
   return (
     <html lang="fr">
       <body className={`font-sans antialiased`}>
-        <Navbar />
-        {children}
-        <Toaster />
-        <FloatingAiAssistant />
-        <Analytics />
+        <SmoothScroll>
+          <Navbar />
+          {children}
+          <Toaster />
+          <FloatingAiAssistant />
+          <Analytics />
+        </SmoothScroll>
       </body>
     </html>
   )
