@@ -25,6 +25,7 @@ fairlearn
 scikit-learn
 tabulate
 openpyxl
+chardet
 
 # Reporting
 reportlab
