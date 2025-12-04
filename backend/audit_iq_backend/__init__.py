@@ -46,10 +46,27 @@ async def log_requests(request: StarletteRequest, call_next):
     return response
 
 # CORS Configuration - Allow frontend origins
-cors_origins = CORS_ORIGINS if isinstance(CORS_ORIGINS, list) else [CORS_ORIGINS]
+# Default origins including the new Netlify deployment
+default_origins = [
+    "http://localhost:3000",
+    "http://localhost:8000",
+    "https://693172a5572b9400c6242238--auditiq-v1.netlify.app"
+]
+
+env_origins = os.getenv("CORS_ORIGINS", "*").split(",")
+if env_origins == ["*"]:
+    # If default *, we use our specific list but enable regex for all
+    cors_origins = default_origins
+else:
+    cors_origins = env_origins
+    # Ensure Netlify URL is present if not *
+    if "https://693172a5572b9400c6242238--auditiq-v1.netlify.app" not in cors_origins:
+        cors_origins.append("https://693172a5572b9400c6242238--auditiq-v1.netlify.app")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
+    allow_origin_regex=".*", # Allow all origins (permissive mode)
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
