@@ -1,6 +1,5 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
-import { Analytics } from '@vercel/analytics/next'
 import { Navbar } from '@/components/navbar'
 import { Toaster } from '@/components/ui/toaster'
 import { FloatingAiAssistant } from '@/components/glowing-ai-chat-assistant'
@@ -35,7 +34,6 @@ export default function RootLayout({
           {children}
           <Toaster />
           <FloatingAiAssistant />
-          <Analytics />
         </SmoothScroll>
       </body>
     </html>
