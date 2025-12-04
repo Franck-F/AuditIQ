@@ -91,7 +91,7 @@ export function Navbar() {
     <>
       {/* Logo - Fixed top left - Hidden on dashboard */}
       {!pathname.startsWith('/dashboard') && (
-        <div className="fixed top-6 left-6 z-[10000]">
+        <div className="absolute top-4 left-4 md:fixed md:top-6 md:left-6 z-[10000]">
           <Link href="/">
             <Logo />
           </Link>
@@ -101,7 +101,7 @@ export function Navbar() {
       <AnimeNavBar items={navItems} defaultActive="Accueil" />
       
       {/* User Menu - Fixed top right */}
-      <div className="fixed top-6 right-6 z-[10000] flex items-center gap-3">
+      <div className="absolute top-4 right-4 md:fixed md:top-6 md:right-6 z-[10000] flex items-center gap-3">
         <ThemeToggle />
         {isAuthenticated && userProfile ? (
           <DropdownMenu>

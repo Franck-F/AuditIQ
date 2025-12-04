@@ -10,7 +10,7 @@ export default function DashboardPage() {
   return (
     <div className="flex min-h-screen">
       <Sidebar />
-      <div className="flex-1 ml-64">
+      <div className="flex-1 md:ml-64 transition-all duration-300">
         <DashboardHeader />
         <main className="p-6 space-y-6">
           {/* Welcome Section */}
@@ -22,7 +22,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Stats Grid */}
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
             <StatCard
               title="Score d'équité moyen"
               value="87%"

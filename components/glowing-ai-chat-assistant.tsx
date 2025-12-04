@@ -261,12 +261,12 @@ const FloatingAiAssistant = () => {
       {isChatOpen && (
         <div 
           ref={chatRef}
-          className="absolute bottom-20 right-0 w-max max-w-[500px] transition-all duration-300 origin-bottom-right"
+          className="fixed inset-x-4 bottom-24 md:absolute md:inset-auto md:bottom-20 md:right-0 w-auto md:w-[380px] lg:w-[450px] max-w-full transition-all duration-300 origin-bottom md:origin-bottom-right z-50"
           style={{
             animation: 'popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
           }}
         >
-          <div className="relative flex flex-col rounded-3xl bg-card/95 border border-border shadow-2xl backdrop-blur-3xl overflow-hidden">
+          <div className="relative flex flex-col rounded-3xl bg-card/95 border border-border shadow-2xl backdrop-blur-3xl overflow-hidden max-h-[70vh] md:max-h-[600px]">
             
             {/* Header */}
             <div className="flex items-center justify-between px-6 pt-4 pb-2">
@@ -520,7 +520,7 @@ const FloatingAiAssistant = () => {
                 <div className="flex items-center gap-2">
                   <Info className="w-3 h-3" />
                   <span>
-                    Appuyez sur <kbd className="px-1.5 py-1 bg-muted border border-border rounded text-muted-foreground font-mono text-xs shadow-sm">Maj + Entrée</kbd> pour nouvelle ligne
+                    Appuyez sur <kbd className="hidden md:inline px-1.5 py-1 bg-muted border border-border rounded text-muted-foreground font-mono text-xs shadow-sm">Maj + Entrée</kbd><span className="md:hidden">Entrée</span> pour envoyer
                   </span>
                 </div>
 
