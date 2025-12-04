@@ -36,40 +36,7 @@ router = APIRouter(prefix="/api/ai", tags=["ai"])
 
 # ... (keep existing classes) ...
 
-# Inside chat function
-        # Create chat session
-        chat = model.start_chat(history=history)
-        
-        print(f"🤖 Generating response for: {chat_request.message[:50]}...")
-        
-        # Build prompt with context
-        full_prompt = f"{create_system_prompt()}\n\n{user_context}\n\nQuestion: {chat_request.message}"
-        
-        # Prepare sources
-        sources = []
-        # ... (keep sources logic) ...
 
-        async def generate():
-            import json
-            print("⚡ Starting stream generation...")
-            try:
-                # Send sources first
-                yield json.dumps({"type": "sources", "sources": sources}) + "\n"
-                print("   Sent sources")
-                
-                # Stream response from Gemini
-                print("   Calling Gemini API...")
-                response = await chat.send_message_async(full_prompt, stream=True)
-                
-                print("   Iterating chunks...")
-                async for chunk in response:
-                    if chunk.text:
-                        # print(f"   Chunk: {chunk.text[:20]}...")
-                        yield json.dumps({"type": "chunk", "text": chunk.text}) + "\n"
-                print("   Stream finished successfully")
-            except Exception as e:
-                print(f"❌ Error streaming from Gemini: {e}")
-                yield json.dumps({"type": "error", "error": str(e)}) + "\n"
 
 
 class ChatMessage(BaseModel):
