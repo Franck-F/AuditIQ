@@ -260,12 +260,13 @@ async def login(
         expires_delta=access_token_expires
     )
     
-    # Définir cookie HttpOnly
+    # Définir cookie HttpOnly avec paramètres Cross-Site
     response.set_cookie(
         key="access_token",
         value=access_token,
         httponly=True,
-        samesite="lax",
+        secure=True,  # Requis pour SameSite=None
+        samesite="none",  # Requis pour cross-domain (Netlify -> Render)
         max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
     
@@ -558,7 +559,8 @@ async def register(
         key="access_token",
         value=access_token,
         httponly=True,
-        samesite="lax",
+        secure=True,
+        samesite="none",
         max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )
 
