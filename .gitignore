@@ -21,3 +21,4 @@ backend/test_*.py
 backend/*.ps1
 backend/verify_*.py
 
+backend/update_env_password.py
