@@ -8,3 +8,16 @@ __pycache__
 .venv
 venv/
 *.db
+
+env_backup.txt
+fix_env.py
+update_env.py
+update_frontend_env.py
+create_env_local.py
+backend/env_backup.txt
+backend/fix_env.py
+backend/update_env.py
+backend/test_*.py
+backend/*.ps1
+backend/verify_*.py
+
