@@ -14,16 +14,20 @@ if DATABASE_URL.startswith("postgresql://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
 
 # Configure connection args
-connect_args = {}
-# Disable statement cache for Supabase Transaction Pooler (port 6543)
-if "6543" in DATABASE_URL:
-    connect_args["statement_cache_size"] = 0
+# Force disable statement cache for Supabase Transaction Pooler compatibility
+# This is required when using pgbouncer in transaction mode
+connect_args = {
+    "statement_cache_size": 0
+}
+
+print(f"🔌 Database Connection: {DATABASE_URL.split('@')[-1] if '@' in DATABASE_URL else 'HIDDEN'}")
+print(f"⚙️ Connect Args: {connect_args}")
 
 engine = create_async_engine(
     DATABASE_URL,
     echo=False,
     future=True,
-    pool_pre_ping=True,  # Check connection before usage
+    pool_pre_ping=True,
     connect_args=connect_args
 )
 AsyncSessionLocal = sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
