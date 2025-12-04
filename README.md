@@ -36,17 +36,35 @@
 
 ## 🛠️ Stack Technique
 
-### Frontend
--   ![Next.js](https://img.shields.io/badge/-Next.js_16-000000?style=flat-square&logo=next.js&logoColor=white) **Framework React**
--   ![TypeScript](https://img.shields.io/badge/-TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white) **Typage Statique**
--   ![Tailwind CSS](https://img.shields.io/badge/-Tailwind_CSS_v4-38B2AC?style=flat-square&logo=tailwind-css&logoColor=white) **Styling**
--   ![Shadcn/UI](https://img.shields.io/badge/-Shadcn/UI-000000?style=flat-square&logo=shadcnui&logoColor=white) **Composants UI**
+### 🎨 Frontend (Client)
+*   **Framework** : ![Next.js](https://img.shields.io/badge/Next.js_16-000000?style=flat-square&logo=next.js&logoColor=white) (App Router)
+*   **Langage** : ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
+*   **Styling** : ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS_v4-38B2AC?style=flat-square&logo=tailwind-css&logoColor=white)
+*   **Composants UI** : ![Shadcn/UI](https://img.shields.io/badge/Shadcn/UI-000000?style=flat-square&logo=shadcnui&logoColor=white) (Radix UI)
+*   **Animations** : Framer Motion, GSAP
+*   **État & Formulaires** : Zustand, React Hook Form, Zod
+*   **Visualisation** : Recharts
+*   **HTTP Client** : Axios
 
-### Backend
--   ![FastAPI](https://img.shields.io/badge/-FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white) **API Framework**
--   ![Python](https://img.shields.io/badge/-Python_3.10+-3776AB?style=flat-square&logo=python&logoColor=white) **Langage**
--   ![Pandas](https://img.shields.io/badge/-Pandas-150458?style=flat-square&logo=pandas&logoColor=white) **Data Processing**
--   ![Scikit-Learn](https://img.shields.io/badge/-Scikit_Learn-F7931E?style=flat-square&logo=scikit-learn&logoColor=white) **Machine Learning**
+### ⚙️ Backend (Server)
+*   **Framework** : ![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)
+*   **Langage** : ![Python](https://img.shields.io/badge/Python_3.10+-3776AB?style=flat-square&logo=python&logoColor=white)
+*   **Base de Données** : ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-336791?style=flat-square&logo=postgresql&logoColor=white) (via Supabase)
+*   **ORM** : SQLAlchemy (Async) + Asyncpg
+*   **Authentification** : JWT (PyJWT), OAuth2, Bcrypt
+*   **Data Science & IA** :
+    *   Pandas, NumPy (Traitement de données)
+    *   Scikit-learn (Machine Learning)
+    *   Fairlearn (Audit de biais)
+    *   Google Gemini AI (Génération de recommandations)
+*   **Reporting** : ReportLab (PDF), OpenPyXL (Excel)
+*   **Sécurité** : Slowapi (Rate Limiting), CORS middleware
+
+### 🚀 Déploiement & DevOps
+*   **Frontend** : ![Netlify](https://img.shields.io/badge/Netlify-00C7B7?style=flat-square&logo=netlify&logoColor=white) (CI/CD automatique)
+*   **Backend** : ![Render](https://img.shields.io/badge/Render-46E3B7?style=flat-square&logo=render&logoColor=white) (Dockerized)
+*   **Conteneurisation** : ![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)
+*   **Base de Données** : Supabase (Managed PostgreSQL)
 
 ## 🏗️ Architecture
 
