@@ -5,8 +5,17 @@ import { Logo } from '@/components/ui/logo'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { CheckCircle, CreditCard, Shield, Lock } from 'lucide-react'
+import { Suspense } from 'react'
 
 export default function PaymentPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Chargement...</div>}>
+      <PaymentContent />
+    </Suspense>
+  )
+}
+
+function PaymentContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const plan = searchParams.get('plan') || 'pro'

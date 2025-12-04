@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Logo } from '@/components/ui/logo'
-import { CheckCircle } from 'lucide-react'
+import { CheckCircle, ArrowLeft, Mail } from 'lucide-react'
 
 // Helper pour extraire le message d'erreur
 function getErrorMessage(data: any): string {
