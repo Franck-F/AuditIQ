@@ -261,12 +261,12 @@ const FloatingAiAssistant = () => {
       {isChatOpen && (
         <div 
           ref={chatRef}
-          className="fixed inset-x-4 bottom-24 md:absolute md:inset-auto md:bottom-20 md:right-0 w-auto md:w-[380px] lg:w-[450px] max-w-full transition-all duration-300 origin-bottom md:origin-bottom-right z-50"
+          className="fixed inset-x-4 bottom-24 sm:inset-auto sm:bottom-20 sm:right-4 w-auto sm:w-[90vw] sm:max-w-[420px] lg:max-w-[480px] transition-all duration-300 origin-bottom sm:origin-bottom-right z-50"
           style={{
             animation: 'popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
           }}
         >
-          <div className="relative flex flex-col rounded-3xl bg-card/95 border border-border shadow-2xl backdrop-blur-3xl overflow-hidden max-h-[70vh] md:max-h-[600px]">
+          <div className="relative flex flex-col rounded-3xl bg-card/95 border border-border shadow-2xl backdrop-blur-3xl overflow-hidden max-h-[70vh] sm:max-h-[600px]">
             
             {/* Header */}
             <div className="flex items-center justify-between px-6 pt-4 pb-2">

@@ -3,7 +3,7 @@
 import { usePathname, useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { AnimeNavBar } from '@/components/ui/anime-navbar'
-import { Home, Sparkles, DollarSign, BookOpen, FileText, Shield, Mail, LayoutDashboard, User, LogOut } from 'lucide-react'
+import { Home, Sparkles, DollarSign, BookOpen, FileText, Shield, Mail, LayoutDashboard, User, LogOut, Menu, X } from 'lucide-react'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { Logo } from '@/components/ui/logo'
 import Link from 'next/link'
@@ -29,6 +29,7 @@ export function Navbar() {
   const router = useRouter()
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   
   useEffect(() => {
     checkAuth()
@@ -89,16 +90,50 @@ export function Navbar() {
 
   return (
     <>
-      {/* Logo - Fixed top left - Hidden on dashboard */}
+      {/* Logo - Fixed top left - Hidden on dashboard AND on phones */}
       {!pathname.startsWith('/dashboard') && (
-        <div className="absolute top-4 left-4 md:fixed md:top-6 md:left-6 z-[10000]">
+        <div className="absolute top-4 left-4 md:fixed md:top-6 md:left-6 z-[10000] hidden sm:block">
           <Link href="/">
             <Logo />
           </Link>
         </div>
       )}
       
-      <AnimeNavBar items={navItems} defaultActive="Accueil" />
+      {/* Desktop Navigation - Hidden on mobile/tablet */}
+      <div className="hidden lg:block">
+        <AnimeNavBar items={navItems} defaultActive="Accueil" />
+      </div>
+      
+      {/* Mobile Menu Button - Only on mobile/tablet */}
+      {!pathname.startsWith('/dashboard') && (
+        <button 
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="lg:hidden absolute top-4 left-4 z-[10000] p-2 rounded-lg bg-black/50 border border-white/10 backdrop-blur-lg hover:bg-black/70 transition-colors"
+        >
+          {mobileMenuOpen ? <X className="h-6 w-6 text-white" /> : <Menu className="h-6 w-6 text-white" />}
+        </button>
+      )}
+      
+      {/* Mobile Navigation Menu */}
+      {mobileMenuOpen && !pathname.startsWith('/dashboard') && (
+        <div className="lg:hidden fixed inset-0 z-[9999] bg-background/95 backdrop-blur-xl pt-20">
+          <nav className="container mx-auto px-4 py-8">
+            <div className="flex flex-col space-y-4">
+              {navItems.map((item) => (
+                <Link
+                  key={item.name}
+                  href={item.url}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-3 p-4 rounded-lg border border-border hover:bg-accent transition-colors"
+                >
+                  <item.icon className="h-5 w-5 text-primary" />
+                  <span className="text-lg font-medium">{item.name}</span>
+                </Link>
+              ))}
+            </div>
+          </nav>
+        </div>
+      )}
       
       {/* User Menu - Fixed top right */}
       <div className="absolute top-4 right-4 md:fixed md:top-6 md:right-6 z-[10000] flex items-center gap-3">
