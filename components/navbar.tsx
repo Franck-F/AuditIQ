@@ -91,8 +91,9 @@ export function Navbar() {
   return (
     <>
       {/* Logo - Fixed top left - Hidden on dashboard AND on phones */}
+      {/* Logo - Fixed top left - Hidden on dashboard AND on phones */}
       {!pathname.startsWith('/dashboard') && (
-        <div className="absolute top-4 left-4 md:fixed md:top-6 md:left-6 z-[10000] hidden sm:block">
+        <div className="fixed top-4 left-4 md:top-6 md:left-6 z-[10000] hidden sm:block">
           <Link href="/">
             <Logo />
           </Link>
@@ -105,10 +106,11 @@ export function Navbar() {
       </div>
       
       {/* Mobile Menu Button - Only on mobile/tablet */}
+      {/* Mobile Menu Button - Only on mobile/tablet */}
       {!pathname.startsWith('/dashboard') && (
         <button 
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="lg:hidden absolute top-4 left-4 z-[10000] p-2 rounded-lg bg-black/50 border border-white/10 backdrop-blur-lg hover:bg-black/70 transition-colors"
+          className="lg:hidden fixed top-4 left-4 z-[10000] p-2 rounded-lg bg-black/50 border border-white/10 backdrop-blur-lg hover:bg-black/70 transition-colors"
         >
           {mobileMenuOpen ? <X className="h-6 w-6 text-white" /> : <Menu className="h-6 w-6 text-white" />}
         </button>
@@ -136,7 +138,7 @@ export function Navbar() {
       )}
       
       {/* User Menu - Fixed top right */}
-      <div className="absolute top-4 right-4 md:fixed md:top-6 md:right-6 z-[10000] flex items-center gap-3">
+      <div className="fixed top-4 right-4 md:top-6 md:right-6 z-[10000] flex items-center gap-3">
         <ThemeToggle />
         {isAuthenticated && userProfile ? (
           <DropdownMenu>
