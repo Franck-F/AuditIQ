@@ -87,7 +87,7 @@ export const Footer7 = ({
 }: Footer7Props) => {
   return (
     <section className="py-16 border-t border-border bg-muted/20">
-      <div className="container mx-auto">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex w-full flex-col justify-between gap-10 lg:flex-row lg:items-start lg:text-left">
           <div className="flex w-full flex-col justify-between gap-6 lg:items-start">
             {/* Logo */}
