@@ -195,6 +195,17 @@ const docSections = [
     ]
   },
   {
+    title: "Auto EDA - Analyse Exploratoire Automatique",
+    items: [
+      { title: "Introduction à Auto EDA", href: "/docs/auto-eda/intro" },
+      { title: "Configurer les sources de données", href: "/docs/auto-eda/data-sources" },
+      { title: "Lancer des analyses manuelles", href: "/docs/auto-eda/manual-analysis" },
+      { title: "Comprendre les rapports matinaux", href: "/docs/auto-eda/morning-reports" },
+      { title: "Configurer les alertes (Email/Slack)", href: "/docs/auto-eda/alerts" },
+      { title: "Scheduler nocturne", href: "/docs/auto-eda/scheduler" }
+    ]
+  },
+  {
     title: "Conformité réglementaire",
     items: [
       { title: "Conformité AI Act", href: "/docs/ai-act" },

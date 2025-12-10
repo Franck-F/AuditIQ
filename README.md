@@ -29,9 +29,11 @@
 | :--- | :--- |
 | **📊 Dashboard Intuitif** | Visualisez les performances et les métriques de fairness en temps réel. |
 | **🔍 Audit de Fairness** | Calcul automatique de métriques (Demographic Parity, Equal Opportunity, etc.). |
+| **🤖 Auto EDA** | Analyse exploratoire automatique avec détection d'anomalies et rapports matinaux. |
 | **⚖️ Conformité AI Act** | Génération de rapports détaillés pour répondre aux exigences réglementaires. |
 | **🛡️ Sécurité & Privacy** | Anonymisation des données et conformité RGPD native. |
 | **📈 Détection de Biais** | Identification proactive des biais dans vos datasets et modèles. |
+| **🔔 Alertes Intelligentes** | Notifications email et Slack pour anomalies critiques. |
 | **👥 Gestion d'Équipe** | Collaboration facilitée avec gestion fine des permissions. |
 
 ## 🛠️ Stack Technique
@@ -56,7 +58,10 @@
     *   Pandas, NumPy (Traitement de données)
     *   Scikit-learn (Machine Learning)
     *   Fairlearn (Audit de biais)
+    *   SciPy, Statsmodels (Analyse statistique EDA)
     *   Google Gemini AI (Génération de recommandations)
+*   **Automation** : APScheduler (Analyses nocturnes)
+*   **Alerting** : SMTP (Email), Slack Webhooks
 *   **Reporting** : ReportLab (PDF), OpenPyXL (Excel)
 *   **Sécurité** : Slowapi (Rate Limiting), CORS middleware
 
@@ -129,7 +134,18 @@ L'API est documentée automatiquement via Swagger UI. Une fois le backend lancé
 Principaux endpoints :
 *   `/api/auth/*` : Authentification
 *   `/api/audits/*` : Gestion des audits
+*   `/api/eda/*` : Auto EDA (sources, analyses, rapports)
 *   `/api/reports/*` : Génération de rapports
+
+### 🤖 Module Auto EDA
+
+Le module Auto EDA offre une analyse exploratoire automatique avec :
+- **Détection d'anomalies** : Tests statistiques robustes (IQR, Z-score, ANOVA)
+- **Analyse des causes** : Corrélations et identification des facteurs
+- **Rapports automatiques** : Génération nocturne à 3h du matin
+- **Alertes intelligentes** : Email (critiques) et Slack (importantes)
+
+Configuration : Voir `backend/docs/EDA_SCHEDULER.md`
 
 ## 🤝 Contribuer
 

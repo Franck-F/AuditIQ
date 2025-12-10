@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Logo } from '@/components/ui/logo'
 import { cn } from '@/lib/utils'
-import { LayoutDashboard, Upload, FileText, Settings, Users, Shield, Bell, HelpCircle, ChevronLeft, ChevronRight, User, FileCheck, Cable } from 'lucide-react'
+import { LayoutDashboard, Upload, FileText, Settings, Users, Shield, Bell, HelpCircle, ChevronLeft, ChevronRight, User, FileCheck, Cable, TrendingUp, Database, BarChart3 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useState, useEffect } from 'react'
 
@@ -17,6 +17,9 @@ const navigation = [
   { name: 'Conformité', href: '/dashboard/compliance', icon: Shield },
   { name: 'Équipe', href: '/dashboard/team', icon: Users },
   { name: 'Profil', href: '/dashboard/profile', icon: User },
+  { name: 'Auto EDA', href: '/dashboard/eda', icon: TrendingUp },
+  { name: 'Sources EDA', href: '/dashboard/eda/sources', icon: Database },
+  { name: 'Analyses EDA', href: '/dashboard/eda/analyses', icon: BarChart3 },
 ]
 
 const bottomNavigation = [

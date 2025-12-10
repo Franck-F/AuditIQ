@@ -75,7 +75,12 @@ export default function LoginPage() {
       // Connexion réussie
       console.log('Connexion réussie:', data.user)
       localStorage.setItem('token', data.access_token)
-      window.location.href = '/dashboard'
+      
+      // Récupérer le paramètre redirect de l'URL
+      const urlParams = new URLSearchParams(window.location.search)
+      const redirectPath = urlParams.get('redirect') || '/dashboard'
+      
+      window.location.href = redirectPath
     } catch (err) {
       setError('Erreur de connexion au serveur. Vérifiez que le backend est démarré.')
       console.error('Erreur de connexion:', err)

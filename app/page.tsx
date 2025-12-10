@@ -85,6 +85,104 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Feature Selection Section */}
+      <section className="py-16 bg-gradient-to-b from-background to-muted/30">
+        <div className="container mx-auto px-4">
+          <div className="text-center space-y-4 mb-12">
+            <h2 className="text-3xl font-bold tracking-tight">Choisissez votre solution</h2>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              Sélectionnez le module adapté à vos besoins d'analyse
+            </p>
+          </div>
+          <div className="grid gap-8 md:grid-cols-2 max-w-5xl mx-auto">
+            {/* Fairness Audit Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="group relative overflow-hidden rounded-2xl border border-border bg-card p-8 shadow-lg hover:shadow-2xl transition-all duration-300 hover:border-primary/50"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="relative space-y-6">
+                <div className="inline-flex rounded-lg bg-primary/10 p-3 text-primary">
+                  <Shield className="h-8 w-8" />
+                </div>
+                <div className="space-y-3">
+                  <h3 className="text-2xl font-bold">Audit de Fairness</h3>
+                  <p className="text-muted-foreground leading-relaxed">
+                    Détectez et corrigez les biais algorithmiques avec des métriques avancées. 
+                    Conformité AI Act et RGPD garantie.
+                  </p>
+                </div>
+                <ul className="space-y-2">
+                  <li className="flex items-center gap-2 text-sm">
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                    <span>8+ métriques de fairness</span>
+                  </li>
+                  <li className="flex items-center gap-2 text-sm">
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                    <span>Rapports de conformité</span>
+                  </li>
+                  <li className="flex items-center gap-2 text-sm">
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                    <span>Recommandations IA</span>
+                  </li>
+                </ul>
+                <Link href="/login?redirect=/dashboard/audits" className="block">
+                  <Button className="w-full gap-2 glow-primary group-hover:scale-105 transition-transform">
+                    Commencer un audit
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
+            </motion.div>
+
+            {/* Auto EDA Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              viewport={{ once: true }}
+              className="group relative overflow-hidden rounded-2xl border border-border bg-card p-8 shadow-lg hover:shadow-2xl transition-all duration-300 hover:border-secondary/50"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-secondary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              <div className="relative space-y-6">
+                <div className="inline-flex rounded-lg bg-secondary/10 p-3 text-secondary">
+                  <TrendingUp className="h-8 w-8" />
+                </div>
+                <div className="space-y-3">
+                  <h3 className="text-2xl font-bold">Auto EDA</h3>
+                  <p className="text-muted-foreground leading-relaxed">
+                    Analyse exploratoire automatique avec détection d'anomalies et rapports matinaux. 
+                    Alertes intelligentes incluses.
+                  </p>
+                </div>
+                <ul className="space-y-2">
+                  <li className="flex items-center gap-2 text-sm">
+                    <CheckCircle2 className="h-4 w-4 text-secondary" />
+                    <span>Détection d'anomalies 24/7</span>
+                  </li>
+                  <li className="flex items-center gap-2 text-sm">
+                    <CheckCircle2 className="h-4 w-4 text-secondary" />
+                    <span>Rapports automatiques</span>
+                  </li>
+                  <li className="flex items-center gap-2 text-sm">
+                    <CheckCircle2 className="h-4 w-4 text-secondary" />
+                    <span>Alertes Email & Slack</span>
+                  </li>
+                </ul>
+                <Link href="/login?redirect=/dashboard/eda" className="block">
+                  <Button variant="secondary" className="w-full gap-2 group-hover:scale-105 transition-transform">
+                    Explorer Auto EDA
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
       <section id="technology" className="py-12 border-y border-border bg-muted/30">
         <div className="container mx-auto px-4">
           <p className="text-center text-sm font-medium text-muted-foreground mb-8">

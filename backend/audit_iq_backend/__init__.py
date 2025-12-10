@@ -73,7 +73,7 @@ app.add_middleware(
 )
 
 # Include routers for profile management
-from routers import team, profile, auth, settings, upload, connections, mapping, audits, reports, ai_chat
+from routers import team, profile, auth, settings, upload, connections, mapping, audits, reports, ai_chat, eda
 app.include_router(auth.router)
 app.include_router(team.router)
 app.include_router(profile.router)
@@ -84,7 +84,8 @@ app.include_router(mapping.router)
 app.include_router(audits.router)
 app.include_router(reports.router)
 app.include_router(ai_chat.router)
-print("[OK] Routers auth, team, profile, settings, upload, connections, mapping, audits, reports, ai_chat inclus")
+app.include_router(eda.router)  # Auto EDA module
+print("[OK] Routers auth, team, profile, settings, upload, connections, mapping, audits, reports, ai_chat, eda inclus")
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
@@ -96,8 +97,23 @@ async def get_db():
 
 @app.on_event("startup")
 async def on_startup():
+    # Import EDA models to register them with Base
+    from models import eda_models
+    
     # initialize DB (create tables if necessary)
     await init_models()
+    
+    # Start EDA scheduler for nightly analysis
+    from services.eda.scheduler import eda_scheduler
+    eda_scheduler.start()
+    print("[OK] EDA Scheduler started - Nightly analysis at 3:00 AM")
+
+@app.on_event("shutdown")
+async def on_shutdown():
+    # Stop EDA scheduler
+    from services.eda.scheduler import eda_scheduler
+    eda_scheduler.stop()
+    print("[OK] EDA Scheduler stopped")
 
 # ============= ENDPOINTS =============
 
