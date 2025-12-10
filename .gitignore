@@ -20,5 +20,8 @@ backend/update_env.py
 backend/test_*.py
 backend/*.ps1
 backend/verify_*.py
-
+fonctionnalités.txt 
+journal_de_construction_3.txt
+journal_de_construction_4.txt
+journal_de_construction.txt
 backend/update_env_password.py
