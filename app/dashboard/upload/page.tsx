@@ -8,11 +8,12 @@ import { EditableDataTable } from '@/components/dashboard/editable-data-table'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
-import { Database, Upload, FileSpreadsheet, ArrowRight, CheckCircle2, AlertCircle, Info, Loader2, AlertTriangle } from 'lucide-react'
+import { Database, Upload, FileSpreadsheet, ArrowRight, CheckCircle2, AlertCircle, Info, Loader2, AlertTriangle, Brain } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from '@/hooks/use-toast'
 import { useRouter } from 'next/navigation'
@@ -97,7 +98,7 @@ export default function UploadPage() {
   const [trainingAlgorithm, setTrainingAlgorithm] = useState<string>('auto')
 
 
-  // Lancer automatiquement l'audit en atteignant l'étape 4
+  // Lancer automatiquement l'audit en atteignant l'étape 5
   useEffect(() => {
     if (step === 5 && preview?.dataset_id) {
       const launchAudit = async () => {
@@ -342,9 +343,9 @@ export default function UploadPage() {
             <div className="h-px w-12 bg-border" />
             <StepIndicator number={2} title="Prévisualisation" active={step === 2} completed={step > 2} />
             <div className="h-px w-12 bg-border" />
-            <StepIndicator number={3} title="Prédictions" active={step === 3} completed={step > 3} />
+            <StepIndicator number={3} title="Configuration" active={step === 3} completed={step > 3} />
             <div className="h-px w-12 bg-border" />
-            <StepIndicator number={4} title="Configuration" active={step === 4} completed={step > 4} />
+            <StepIndicator number={4} title="Prédictions" active={step === 4} completed={step > 4} />
             <div className="h-px w-12 bg-border" />
             <StepIndicator number={5} title="Audit" active={step === 5} completed={step > 5} />
           </div>
@@ -589,7 +590,7 @@ export default function UploadPage() {
           {/* Configuration Step */}
 
           {/* Étape 3: Prédictions ML */}
-          {step === 3 && preview && (
+          {step === 4 && preview && (
             <Card className="p-6">
               <h3 className="text-lg font-semibold mb-4">Méthode de prédiction</h3>
               <p className="text-sm text-muted-foreground mb-6">
@@ -751,7 +752,7 @@ export default function UploadPage() {
                         })
                         if (response.ok) {
                           setTrainingStatus('completed')
-                          setTimeout(() => setStep(4), 1500)
+                          setTimeout(() => setStep(5), 1500)
                         } else {
                           setTrainingStatus('error')
                         }
@@ -773,7 +774,7 @@ export default function UploadPage() {
                           body: formData
                         })
                         if (response.ok) {
-                          setStep(4)
+                          setStep(5)
                         }
                       } catch (error) {
                         console.error(error)
@@ -788,7 +789,7 @@ export default function UploadPage() {
             </Card>
           )}
 
-          {step === 4 && preview && preview.columns_info && (
+          {step === 3 && preview && preview.columns_info && (
             <Card className="p-6 space-y-6">
               <div>
                 <h2 className="text-xl font-semibold mb-2">Configuration de l'audit</h2>
@@ -1054,8 +1055,8 @@ export default function UploadPage() {
             </Card>
           )}
 
-          {/* Processing Step */}
-          {step === 4 && (
+          {/* Processing Step - Étape 5 : Lancement de l'audit */}
+          {step === 5 && (
             <Card className="p-12 text-center space-y-6">
               <div className="inline-flex rounded-full bg-primary/10 p-6 mx-auto">
                 <div className="h-16 w-16 animate-spin rounded-full border-4 border-primary border-t-transparent" />
