@@ -45,7 +45,14 @@ def get_severity(percentage: float) -> str:
 
 
 def recommend_strategy(series: pd.Series) -> str:
-    """Recommande une stratégie de traitement selon le type de données"""
+    """
+    Recommande une stratégie de traitement selon le type de données.
+    
+    Règles:
+    - Catégorielles: mode (valeur la plus fréquente)
+    - Booléennes (0/1): mode
+    - Numériques continues: mean ou median selon distribution
+    """
     dtype = series.dtype
     null_percentage = (series.isnull().sum() / len(series)) * 100
     
@@ -57,17 +64,35 @@ def recommend_strategy(series: pd.Series) -> str:
     if null_percentage < 5:
         return 'drop_rows'
     
-    # Stratégies selon le type
-    if pd.api.types.is_numeric_dtype(dtype):
-        # Vérifier si distribution normale
-        if series.skew() < 1:
-            return 'mean'
-        else:
-            return 'median'
-    elif pd.api.types.is_categorical_dtype(dtype) or series.nunique() < 20:
+    # Détecter variables booléennes (0/1 ou True/False)
+    unique_vals = series.dropna().unique()
+    if len(unique_vals) <= 2:
+        # Booléenne ou binaire -> utiliser mode
+        if set(unique_vals).issubset({0, 1, True, False, 0.0, 1.0}):
+            return 'mode'
+    
+    # Variables catégorielles
+    if pd.api.types.is_categorical_dtype(dtype) or pd.api.types.is_object_dtype(dtype):
         return 'mode'
-    else:
-        return 'constant'
+    
+    # Variables catégorielles numériques (peu de valeurs uniques)
+    if series.nunique() < 20:
+        return 'mode'
+    
+    # Variables numériques continues
+    if pd.api.types.is_numeric_dtype(dtype):
+        # Vérifier si distribution normale (skewness proche de 0)
+        try:
+            skewness = series.skew()
+            if abs(skewness) < 1:
+                return 'mean'  # Distribution symétrique
+            else:
+                return 'median'  # Distribution asymétrique ou avec outliers
+        except:
+            return 'median'  # Par défaut pour numérique
+    
+    # Par défaut
+    return 'constant'
 
 
 def get_available_strategies(series: pd.Series) -> List[str]:

@@ -2,54 +2,46 @@
 
 import { Sidebar } from '@/components/dashboard/sidebar'
 import { DashboardHeader } from '@/components/dashboard/header'
-import { Card } from '@/components/ui/card'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import DashboardLayout from '@/components/dashboard/layout'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
-import { logoutUser } from '@/lib/services/auth'
-import { useRouter } from 'next/navigation'
-import { useState, useEffect } from 'react'
-import { Edit, Save, X, CheckCircle } from 'lucide-react'
+import { useToast } from '@/hooks/use-toast'
+import { API_ENDPOINTS } from '@/lib/config/api'
 
 interface UserProfile {
-  id: number
-  email: string
   first_name: string
   last_name: string
-  company_name: string
-  company_size: string
-  sector: string
-  role: string
-  plan: string
-  is_active: boolean
-  language: string
-  timezone: string
-  notifications_enabled: boolean
-  last_login: string | null
-  created_at: string | null
+  email: string
+  company?: string
+  role?: string
 }
 
 export default function ProfilePage() {
   const router = useRouter()
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [profile, setProfile] = useState<UserProfile | null>(null)
-  const [loadingProfile, setLoadingProfile] = useState(true)
-  const [isEditing, setIsEditing] = useState(false)
-  const [editedProfile, setEditedProfile] = useState<Partial<UserProfile>>({})
-  const [saveSuccess, setSaveSuccess] = useState(false)
+  const { toast } = useToast()
+  const [profile, setProfile] = useState<UserProfile>({
+    first_name: '',
+    last_name: '',
+    email: '',
+    company: '',
+    role: ''
+  })
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     fetchProfile()
   }, [])
 
   const fetchProfile = async () => {
-    setLoadingProfile(true)
+    setLoading(true)
     
     try {
-      const res = await fetch('/api/auth/me', {
+      const res = await fetch(API_ENDPOINTS.auth.me, {
         credentials: 'include'
       })
       
@@ -114,7 +106,7 @@ export default function ProfilePage() {
     console.log('📤 Données à envoyer:', editedProfile)
     
     try {
-      const res = await fetch('/api/auth/me', {
+      const res = await fetch(API_ENDPOINTS.auth.me, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editedProfile),

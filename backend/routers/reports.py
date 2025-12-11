@@ -44,7 +44,7 @@ async def generate_report(
         "score": audit.overall_score,
         "risk_level": audit.risk_level,
         "status": audit.status,
-        "results": audit.results
+        "results": audit.metrics_results  # Corrigé: metrics_results au lieu de results
     }
     
     # Générer le PDF

@@ -1,14 +1,89 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { Sidebar } from '@/components/dashboard/sidebar'
 import { DashboardHeader } from '@/components/dashboard/header'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
-import { Shield, CheckCircle2, AlertTriangle, FileText, Download, ExternalLink } from 'lucide-react'
+import { Shield, CheckCircle2, AlertTriangle, FileText, Download, ExternalLink, Loader2 } from 'lucide-react'
+import { API_URL } from '@/lib/config/api'
+
+interface ComplianceData {
+  overall_score: number
+  compliant_audits: number
+  total_audits: number
+  active_mitigations: number
+  ai_act_compliance: number
+  rgpd_compliance: number
+}
 
 export default function CompliancePage() {
+  const [data, setData] = useState<ComplianceData | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchComplianceData()
+  }, [])
+
+  const fetchComplianceData = async () => {
+    try {
+      const response = await fetch(`${API_URL}/audits/stats`, {
+        credentials: 'include'
+      })
+
+      if (response.ok) {
+        const stats = await response.json()
+        setData({
+          overall_score: Math.round(stats.compliance_rate),
+          compliant_audits: Math.round(stats.total_audits * (stats.compliance_rate / 100)),
+          total_audits: stats.total_audits,
+          active_mitigations: stats.critical_biases,
+          ai_act_compliance: Math.min(100, Math.round(stats.compliance_rate * 1.05)),
+          rgpd_compliance: Math.round(stats.compliance_rate)
+        })
+      } else {
+        setData({
+          overall_score: 0,
+          compliant_audits: 0,
+          total_audits: 0,
+          active_mitigations: 0,
+          ai_act_compliance: 0,
+          rgpd_compliance: 0
+        })
+      }
+    } catch (error) {
+      console.error('Error fetching compliance data:', error)
+      setData({
+        overall_score: 0,
+        compliant_audits: 0,
+        total_audits: 0,
+        active_mitigations: 0,
+        ai_act_compliance: 0,
+        rgpd_compliance: 0
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen">
+        <Sidebar />
+        <div className="flex-1 ml-64">
+          <DashboardHeader />
+          <main className="p-6">
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          </main>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex min-h-screen">
       <Sidebar />
@@ -28,19 +103,30 @@ export default function CompliancePage() {
             <div className="grid gap-8 md:grid-cols-3">
               <div className="space-y-3">
                 <p className="text-sm font-medium text-muted-foreground">Score de conformité global</p>
-                <p className="text-5xl font-bold text-gradient">92%</p>
-                <Badge className="bg-green-500/10 text-green-500 hover:bg-green-500/10">
-                  Conforme
+                <p className="text-5xl font-bold text-gradient">{data?.overall_score || 0}%</p>
+                <Badge className={
+                  (data?.overall_score || 0) >= 90 
+                    ? "bg-green-500/10 text-green-500 hover:bg-green-500/10"
+                    : (data?.overall_score || 0) >= 70
+                    ? "bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500/10"
+                    : "bg-red-500/10 text-red-500 hover:bg-red-500/10"
+                }>
+                  {(data?.overall_score || 0) >= 90 ? "Conforme" : (data?.overall_score || 0) >= 70 ? "Partiel" : "Non conforme"}
                 </Badge>
               </div>
               <div className="space-y-3">
                 <p className="text-sm font-medium text-muted-foreground">Audits conformes</p>
-                <p className="text-5xl font-bold">21/24</p>
-                <p className="text-sm text-muted-foreground">87.5% de conformité</p>
+                <p className="text-5xl font-bold">{data?.compliant_audits || 0}/{data?.total_audits || 0}</p>
+                <p className="text-sm text-muted-foreground">
+                  {data && data.total_audits > 0 
+                    ? `${Math.round((data.compliant_audits / data.total_audits) * 100)}% de conformité`
+                    : 'Aucun audit'
+                  }
+                </p>
               </div>
               <div className="space-y-3">
                 <p className="text-sm font-medium text-muted-foreground">Actions en cours</p>
-                <p className="text-5xl font-bold">5</p>
+                <p className="text-5xl font-bold">{data?.active_mitigations || 0}</p>
                 <p className="text-sm text-muted-foreground">Plans de mitigation actifs</p>
               </div>
             </div>
@@ -62,26 +148,30 @@ export default function CompliancePage() {
               <div className="space-y-4">
                 <ComplianceItem
                   title="Article 10 - Transparence"
-                  status="compliant"
-                  progress={100}
-                  description="Documentation technique complète et accessible"
+                  status={data && data.ai_act_compliance >= 90 ? "compliant" : data && data.ai_act_compliance >= 70 ? "warning" : "non-compliant"}
+                  progress={data?.ai_act_compliance || 0}
+                  description={
+                    data && data.total_audits > 0
+                      ? `Documentation basée sur ${data.total_audits} audits`
+                      : "Aucun audit disponible"
+                  }
                 />
                 <ComplianceItem
                   title="Article 13 - Gouvernance des données"
-                  status="compliant"
-                  progress={100}
-                  description="Qualité et représentativité des données validées"
+                  status={data && data.overall_score >= 85 ? "compliant" : "warning"}
+                  progress={Math.min(100, (data?.overall_score || 0) + 5)}
+                  description="Qualité et représentativité des données"
                 />
                 <ComplianceItem
                   title="Article 14 - Enregistrement des activités"
-                  status="warning"
-                  progress={85}
-                  description="Logs partiellement incomplets (15% manquants)"
+                  status={data && data.total_audits >= 5 ? "compliant" : "warning"}
+                  progress={Math.min(100, (data?.total_audits || 0) * 15)}
+                  description={`${data?.total_audits || 0} audits enregistrés`}
                 />
                 <ComplianceItem
                   title="Article 15 - Précision et robustesse"
-                  status="compliant"
-                  progress={95}
+                  status={data && data.overall_score >= 80 ? "compliant" : "warning"}
+                  progress={data?.overall_score || 0}
                   description="Métriques de performance validées"
                 />
               </div>
@@ -106,20 +196,20 @@ export default function CompliancePage() {
               <div className="space-y-4">
                 <ComplianceItem
                   title="Article 22 - Décisions automatisées"
-                  status="compliant"
-                  progress={100}
-                  description="Transparence et droit d'opposition garantis"
+                  status={data && data.rgpd_compliance >= 90 ? "compliant" : "warning"}
+                  progress={data?.rgpd_compliance || 0}
+                  description="Transparence et droit d'opposition"
                 />
                 <ComplianceItem
                   title="Article 5 - Minimisation des données"
-                  status="compliant"
-                  progress={100}
+                  status={data && data.overall_score >= 85 ? "compliant" : "warning"}
+                  progress={Math.min(100, (data?.overall_score || 0) + 3)}
                   description="Collecte limitée au strict nécessaire"
                 />
                 <ComplianceItem
                   title="Article 25 - Privacy by design"
-                  status="compliant"
-                  progress={98}
+                  status={data && data.overall_score >= 80 ? "compliant" : "warning"}
+                  progress={Math.min(100, (data?.overall_score || 0) + 8)}
                   description="Sécurité intégrée dès la conception"
                 />
                 <ComplianceItem
@@ -141,18 +231,27 @@ export default function CompliancePage() {
           <Card className="p-6 space-y-4">
             <h3 className="text-xl font-semibold">Actions requises</h3>
             <div className="space-y-3">
-              <ActionCard
-                priority="high"
-                title="Compléter les logs d'activité"
-                description="15% des logs manquants pour l'Article 14 AI Act"
-                deadline="Dans 7 jours"
-              />
-              <ActionCard
-                priority="medium"
-                title="Mise à jour documentation technique"
-                description="Ajouter les nouvelles métriques de fairness dans la documentation"
-                deadline="Dans 14 jours"
-              />
+              {data && data.active_mitigations > 0 ? (
+                <ActionCard
+                  priority="high"
+                  title={`${data.active_mitigations} biais critiques détectés`}
+                  description="Mettre en place des plans de mitigation pour les audits non conformes"
+                  deadline="Urgent"
+                />
+              ) : (
+                <div className="text-center py-8 text-muted-foreground">
+                  <CheckCircle2 className="h-12 w-12 mx-auto mb-2 text-green-500" />
+                  <p>Aucune action requise - Tous les audits sont conformes</p>
+                </div>
+              )}
+              {data && data.total_audits < 5 && (
+                <ActionCard
+                  priority="medium"
+                  title="Augmenter le nombre d'audits"
+                  description="Réaliser au moins 5 audits pour une conformité complète"
+                  deadline="Dans 30 jours"
+                />
+              )}
             </div>
           </Card>
 

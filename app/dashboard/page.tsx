@@ -1,12 +1,111 @@
+'use client'
+
+import { useState, useEffect } from 'react'
 import { Sidebar } from '@/components/dashboard/sidebar'
 import { DashboardHeader } from '@/components/dashboard/header'
 import { StatCard } from '@/components/dashboard/stat-card'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { BarChart3, TrendingUp, AlertTriangle, CheckCircle2, Upload, FileText, ArrowRight, Clock } from 'lucide-react'
+import { BarChart3, TrendingUp, AlertTriangle, CheckCircle2, Upload, FileText, ArrowRight, Clock, Loader2 } from 'lucide-react'
 import Link from 'next/link'
+import { API_URL } from '@/lib/config/api'
+
+interface DashboardStats {
+  total_audits: number
+  avg_fairness_score: number
+  critical_biases: number
+  compliance_rate: number
+  recent_audits_count: number
+  audits_this_month: number
+}
+
+interface RecentAudit {
+  id: number
+  name: string
+  status: string
+  score: number
+  created_at: string
+}
 
 export default function DashboardPage() {
+  const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [recentAudits, setRecentAudits] = useState<RecentAudit[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetchDashboardData()
+  }, [])
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true)
+      
+      // Récupérer stats
+      const statsResponse = await fetch(`${API_URL}/audits/stats`, {
+        credentials: 'include'
+      })
+
+      if (statsResponse.ok) {
+        const statsData = await statsResponse.json()
+        setStats(statsData)
+      } else if (statsResponse.status === 401) {
+        // Not authenticated - will be handled by middleware
+        setError('Non authentifié')
+      } else {
+        setStats({
+          total_audits: 0,
+          avg_fairness_score: 0,
+          critical_biases: 0,
+          compliance_rate: 0,
+          recent_audits_count: 0,
+          audits_this_month: 0
+        })
+      }
+
+      // Récupérer recent audits
+      const auditsResponse = await fetch(`${API_URL}/audits`, {
+        credentials: 'include'
+      })
+
+      if (auditsResponse.ok) {
+        const auditsData = await auditsResponse.json()
+        console.log('Audits fetched:', auditsData)  // Debug
+        setRecentAudits(auditsData.slice(0, 4))
+      } else {
+        console.error('Failed to fetch audits:', auditsResponse.status)
+      }
+      
+    } catch (err) {
+      console.error('Error fetching dashboard data:', err)
+      // Use default values on erreur
+      setStats({
+        total_audits: 0,
+        avg_fairness_score: 0,
+        critical_biases: 0,
+        compliance_rate: 0,
+        recent_audits_count: 0,
+        audits_this_month: 0
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const getTimeAgo = (dateString: string) => {
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffInMs = now.getTime() - date.getTime()
+    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60))
+    const diffInDays = Math.floor(diffInHours / 24)
+    
+    if (diffInHours < 1) return 'Il y a moins d\'une heure'
+    if (diffInHours < 24) return `Il y a ${diffInHours} heure${diffInHours > 1 ? 's' : ''}`
+    if (diffInDays < 7) return `Il y a ${diffInDays} jour${diffInDays > 1 ? 's' : ''}`
+    if (diffInDays < 30) return `Il y a ${Math.floor(diffInDays / 7)} semaine${Math.floor(diffInDays / 7) > 1 ? 's' : ''}`
+    return `Il y a ${Math.floor(diffInDays / 30)} mois`
+  }
+
   return (
     <div className="flex min-h-screen">
       <Sidebar />
@@ -17,41 +116,47 @@ export default function DashboardPage() {
           <div className="space-y-2">
             <h1 className="text-3xl font-bold tracking-tight">Tableau de bord</h1>
             <p className="text-muted-foreground">
-              Vue d'ensemble de vos audits de fairness et conformité
+              Vue d'overview de vos audits de fairness et conformité
             </p>
           </div>
 
           {/* Stats Grid */}
-          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
-            <StatCard
-              title="Score d'équité moyen"
-              value="87%"
-              change="+5% ce mois"
-              changeType="positive"
-              icon={TrendingUp}
-            />
-            <StatCard
-              title="Audits réalisés"
-              value="24"
-              change="+12 ce mois"
-              changeType="positive"
-              icon={BarChart3}
-            />
-            <StatCard
-              title="Biais détectés"
-              value="3"
-              change="2 critiques"
-              changeType="negative"
-              icon={AlertTriangle}
-            />
-            <StatCard
-              title="Conformité"
-              value="92%"
-              change="AI Act + RGPD"
-              changeType="positive"
-              icon={CheckCircle2}
-            />
-          </div>
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+          ) : (
+            <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+              <StatCard
+                title="Score d'équité moyen"
+                value={stats ? `${Math.round(stats.avg_fairness_score)}%` : '0%'}
+                change={stats && stats.audits_this_month > 0 ? `+${stats.audits_this_month} ce mois` : 'Aucun audit ce mois'}
+                changeType={stats && stats.avg_fairness_score >= 80 ? "positive" : "negative"}
+                icon={TrendingUp}
+              />
+              <StatCard
+                title="Audits réalisés"
+                value={stats ? stats.total_audits.toString() : '0'}
+                change={stats && stats.audits_this_month > 0 ? `+${stats.audits_this_month} ce mois` : 'Aucun ce mois'}
+                changeType="positive"
+                icon={BarChart3}
+              />
+              <StatCard
+                title="Biais détectés"
+                value={stats ? stats.critical_biases.toString() : '0'}
+                change={stats && stats.critical_biases > 0 ? `${stats.critical_biases} critiques` : 'Aucun critique'}
+                changeType={stats && stats.critical_biases > 0 ? "negative" : "positive"}
+                icon={AlertTriangle}
+              />
+              <StatCard
+                title="Conformité"
+                value={stats ? `${Math.round(stats.compliance_rate)}%` : '0%'}
+                change="AI Act + RGPD"
+                changeType={stats && stats.compliance_rate >= 90 ? "positive" : "negative"}
+                icon={CheckCircle2}
+              />
+            </div>
+          )}
 
           {/* Quick Actions */}
           <div className="grid gap-6 md:grid-cols-2">
@@ -113,34 +218,38 @@ export default function DashboardPage() {
                 </Link>
               </div>
               <div className="space-y-3">
-                <AuditItem
-                  name="Système de scoring crédit"
-                  status="Critique"
-                  score={72}
-                  date="Il y a 2 heures"
-                  statusColor="text-red-500"
-                />
-                <AuditItem
-                  name="Tri de CV automatisé"
-                  status="Conforme"
-                  score={94}
-                  date="Il y a 1 jour"
-                  statusColor="text-green-500"
-                />
-                <AuditItem
-                  name="Priorisation tickets support"
-                  status="En cours"
-                  score={85}
-                  date="Il y a 3 jours"
-                  statusColor="text-yellow-500"
-                />
-                <AuditItem
-                  name="Segmentation clients"
-                  status="Conforme"
-                  score={91}
-                  date="Il y a 5 jours"
-                  statusColor="text-green-500"
-                />
+                {loading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : recentAudits.length > 0 ? (
+                  recentAudits.map((audit) => {
+                    const score = audit.score || 0
+                    const status = score >= 90 ? 'Conforme' : score >= 70 ? 'Acceptable' : 'Critique'
+                    const statusColor = score >= 90 ? 'text-green-500' : score >= 70 ? 'text-yellow-500' : 'text-red-500'
+                    const timeAgo = getTimeAgo(audit.created_at)
+                    
+                    return (
+                      <AuditItem
+                        key={audit.id}
+                        name={audit.name || `Audit #${audit.id}`}
+                        status={status}
+                        score={score}
+                        date={timeAgo}
+                        statusColor={statusColor}
+                      />
+                    )
+                  })
+                ) : (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>Aucun audit récent</p>
+                    <Link href="/dashboard/upload">
+                      <Button variant="outline" className="mt-4">
+                        Créer votre premier audit
+                      </Button>
+                    </Link>
+                  </div>
+                )}
               </div>
             </div>
           </Card>
@@ -152,18 +261,18 @@ export default function DashboardPage() {
               <div className="space-y-4">
                 <ComplianceItem
                   title="AI Act Article 10"
-                  status="Conforme"
-                  progress={100}
+                  status={stats && stats.compliance_rate >= 90 ? "Conforme" : stats && stats.compliance_rate >= 70 ? "Partiel" : "Non conforme"}
+                  progress={stats ? Math.round(stats.compliance_rate) : 0}
                 />
                 <ComplianceItem
                   title="RGPD Article 22"
-                  status="Conforme"
-                  progress={100}
+                  status={stats && stats.compliance_rate >= 85 ? "Conforme" : "À améliorer"}
+                  progress={stats ? Math.min(100, Math.round(stats.compliance_rate * 1.1)) : 0}
                 />
                 <ComplianceItem
                   title="Documentation technique"
-                  status="À jour"
-                  progress={92}
+                  status={stats && stats.total_audits > 0 ? "À jour" : "Manquante"}
+                  progress={stats && stats.total_audits > 0 ? Math.min(100, stats.total_audits * 10) : 0}
                 />
               </div>
             </Card>

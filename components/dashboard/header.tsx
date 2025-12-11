@@ -78,7 +78,8 @@ export function DashboardHeader() {
 
   const fetchUserProfile = async () => {
     try {
-      const res = await fetch('/api/auth/me', {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+      const res = await fetch(`${API_URL}/auth/me`, {
         credentials: 'include'
       })
       
@@ -252,7 +253,7 @@ export function DashboardHeader() {
           </DropdownMenuContent>
         </DropdownMenu>
         
-        {/* User Dropdown */}
+        {/* utilisateur Dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="relative h-9 w-9 rounded-full">

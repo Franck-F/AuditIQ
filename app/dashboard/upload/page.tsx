@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Sidebar } from '@/components/dashboard/sidebar'
 import { DashboardHeader } from '@/components/dashboard/header'
 import { FileUpload } from '@/components/dashboard/file-upload'
+import { EditableDataTable } from '@/components/dashboard/editable-data-table'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
@@ -17,7 +18,7 @@ import { toast } from '@/hooks/use-toast'
 import { useRouter } from 'next/navigation'
 import { ConnectionIcon } from '@/components/ui/connection-icons'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
 
 interface DatasetPreview {
   dataset_id: number
@@ -45,6 +46,34 @@ interface AuditConfig {
   anonymization_method?: string
 }
 
+const FAIRNESS_METRICS = [
+  // Core Fairness Metrics
+  { value: 'demographic_parity', label: 'Demographic Parity', desc: 'Égalité des taux de décisions positives entre groupes' },
+  { value: 'equalized_odds', label: 'Equalized Odds', desc: 'Égalité des TPR et FPR entre groupes' },
+  { value: 'equal_opportunity', label: 'Equal Opportunity', desc: 'Égalité des vrais positifs (TPR)' },
+  { value: 'predictive_parity', label: 'Predictive Parity', desc: 'Égalité de la précision entre groupes' },
+  { value: 'calibration', label: 'Calibration', desc: 'Scores prédits = probabilités réelles' },
+  
+  // Ratio-based Metrics
+  { value: 'disparate_impact', label: 'Disparate Impact', desc: 'Ratio des taux de sélection (≥0.8 = équitable)' },
+  { value: 'demographic_parity_ratio', label: 'Demographic Parity Ratio', desc: 'Ratio de parité démographique' },
+  { value: 'equalized_odds_ratio', label: 'Equalized Odds Ratio', desc: "Ratio d'égalité des chances" },
+  
+  // Advanced Metrics
+  { value: 'statistical_parity', label: 'Statistical Parity', desc: 'Différence de taux de sélection' },
+  { value: 'conditional_statistical_parity', label: 'Conditional Statistical Parity', desc: 'Parité conditionnelle sur variables légitimes' },
+  { value: 'treatment_equality', label: 'Treatment Equality', desc: 'Ratio FN/FP entre groupes' },
+  { value: 'balance_positive_class', label: 'Balance for Positive Class', desc: 'Scores moyens pour classe positive' },
+  { value: 'balance_negative_class', label: 'Balance for Negative Class', desc: 'Scores moyens pour classe négative' },
+  
+  // Individual Fairness
+  { value: 'consistency', label: 'Consistency', desc: 'Similarité des prédictions pour individus similaires' },
+  { value: 'individual_fairness', label: 'Individual Fairness', desc: 'Traitement similaire pour individus similaires' },
+  
+  // Causal Fairness
+  { value: 'counterfactual_fairness', label: 'Counterfactual Fairness', desc: "Invariance aux changements d'attributs sensibles" },
+]
+
 export default function UploadPage() {
   const router = useRouter()
   const [file, setFile] = useState<File | null>(null)
@@ -62,6 +91,56 @@ export default function UploadPage() {
   const [missingValuesAnalysis, setMissingValuesAnalysis] = useState<any>(null)
   const [missingValuesStrategies, setMissingValuesStrategies] = useState<Record<string, string>>({})
   const [processingMissing, setProcessingMissing] = useState(false)
+  const [predictionMethod, setPredictionMethod] = useState<'auto' | 'upload'>('auto')
+  const [predictionFile, setPredictionFile] = useState<File | null>(null)
+  const [trainingStatus, setTrainingStatus] = useState<'idle' | 'training' | 'completed' | 'error'>('idle')
+  const [trainingAlgorithm, setTrainingAlgorithm] = useState<string>('auto')
+
+
+  // Lancer automatiquement l'audit en atteignant l'étape 4
+  useEffect(() => {
+    if (step === 5 && preview?.dataset_id) {
+      const launchAudit = async () => {
+        try {
+          const response = await fetch(`${API_URL}/audits/create`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({
+              dataset_id: preview.dataset_id,
+              name: `Audit ${preview.filename}`,
+              use_case: config.use_case,
+              target_column: config.target_column,
+              sensitive_attributes: config.sensitive_attributes,
+              fairness_metrics: config.fairness_metrics
+            })
+          })
+
+          if (!response.ok) {
+            const error = await response.json()
+            throw new Error(error.detail || 'Erreur lors du lancement de l\'audit')
+          }
+
+          const audit = await response.json()
+          
+          // Rediriger vers la page des résultats d'audit
+          setTimeout(() => {
+            router.push(`/dashboard/audits/${audit.id}`)
+          }, 2000)
+        } catch (error: any) {
+          console.error('Erreur audit:', error)
+          toast({
+            title: "Erreur",
+            description: error.message,
+            variant: "destructive"
+          })
+          setStep(3) // Return to configuration step
+        }
+      }
+      
+      launchAudit()
+    }
+  }, [step, preview, config, router])
 
   const handleConnectionClick = () => {
     router.push('/dashboard/connections')
@@ -155,7 +234,8 @@ export default function UploadPage() {
           ...preview,
           row_count: updatedDataset.row_count,
           column_count: updatedDataset.column_count,
-          columns_info: updatedDataset.columns_info?.columns || updatedDataset.columns_info || preview.columns_info
+          columns_info: updatedDataset.columns_info?.columns || updatedDataset.columns_info || preview.columns_info,
+          preview_data: updatedDataset.preview_data || updatedDataset.data || preview.preview_data
         })
         
         toast({
@@ -262,9 +342,11 @@ export default function UploadPage() {
             <div className="h-px w-12 bg-border" />
             <StepIndicator number={2} title="Prévisualisation" active={step === 2} completed={step > 2} />
             <div className="h-px w-12 bg-border" />
-            <StepIndicator number={3} title="Configuration" active={step === 3} completed={step > 3} />
+            <StepIndicator number={3} title="Prédictions" active={step === 3} completed={step > 3} />
             <div className="h-px w-12 bg-border" />
-            <StepIndicator number={4} title="Audit" active={step === 4} completed={step > 4} />
+            <StepIndicator number={4} title="Configuration" active={step === 4} completed={step > 4} />
+            <div className="h-px w-12 bg-border" />
+            <StepIndicator number={5} title="Audit" active={step === 5} completed={step > 5} />
           </div>
 
           {/* Upload Methods */}
@@ -386,7 +468,7 @@ export default function UploadPage() {
             </>
           )}
 
-          {/* Preview Step */}
+          {/* prévisualisation Step */}
           {step === 2 && preview && preview.columns_info && (
             <Card className="p-6 space-y-6">
               <div>
@@ -396,33 +478,30 @@ export default function UploadPage() {
                 </p>
               </div>
 
-              <div className="rounded-lg border border-border overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-muted">
-                      <tr>
-                        {preview.columns_info.slice(0, 6).map((col) => (
-                          <th key={col.name} className="px-4 py-3 text-left text-sm font-medium">
-                            {col.name}
-                            <span className="ml-2 text-xs text-muted-foreground">({col.type})</span>
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {preview.preview_data.slice(0, 10).map((row, i) => (
-                        <tr key={i} className="hover:bg-accent/50">
-                          {preview.columns_info.slice(0, 6).map((col) => (
-                            <td key={col.name} className="px-4 py-3 text-sm">
-                              {row[col.name]?.toString() || '-'}
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+              <EditableDataTable
+                columns={preview.columns_info}
+                data={preview.preview_data}
+                onDataChange={(newData) => {
+                  setPreview({ ...preview, preview_data: newData })
+                }}
+                onRefresh={async () => {
+                  // Recharger les données du dataset depuis le backend
+                  const response = await fetch(`${API_URL}/upload/datasets/${preview.dataset_id}`, {
+                    credentials: 'include'
+                  })
+                  if (response.ok) {
+                    const updatedDataset = await response.json()
+                    setPreview({
+                      ...preview,
+                      row_count: updatedDataset.row_count,
+                      column_count: updatedDataset.column_count,
+                      columns_info: updatedDataset.columns_info?.columns || updatedDataset.columns_info || preview.columns_info,
+                      preview_data: updatedDataset.preview_data || updatedDataset.data || preview.preview_data
+                    })
+                  }
+                }}
+                maxRows={10}
+              />
 
               <div className="grid gap-4 md:grid-cols-3">
                 <Card className="p-4">
@@ -439,7 +518,7 @@ export default function UploadPage() {
                 </Card>
               </div>
 
-              {/* Missing Values Warning */}
+              {/* valeurs manquantes Warning */}
               {preview.columns_info.some(col => col.null_count > 0) && (
                 <Card className="p-4 border-amber-200 bg-amber-50 dark:bg-amber-950 dark:border-amber-800">
                   <div className="flex items-start gap-3">
@@ -508,7 +587,208 @@ export default function UploadPage() {
           )}
 
           {/* Configuration Step */}
-          {step === 3 && preview && preview.columns_info && (
+
+          {/* Étape 3: Prédictions ML */}
+          {step === 3 && preview && (
+            <Card className="p-6">
+              <h3 className="text-lg font-semibold mb-4">Méthode de prédiction</h3>
+              <p className="text-sm text-muted-foreground mb-6">
+                Pour calculer les métriques de fairness, nous avons besoin de prédictions de modèle ML.
+                Choisissez comment les obtenir :
+              </p>
+              
+              <div className="space-y-4">
+                {/* Radio buttons pour choisir la méthode */}
+                <div className="grid grid-cols-2 gap-4">
+                  <label 
+                    className={`cursor-pointer border-2 rounded-lg p-4 transition-all ${
+                      predictionMethod === 'auto' 
+                        ? 'border-primary bg-primary/5' 
+                        : 'border-border hover:border-primary/50'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      value="auto"
+                      checked={predictionMethod === 'auto'}
+                      onChange={(e) => setPredictionMethod('auto')}
+                      className="sr-only"
+                    />
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5">
+                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                          predictionMethod === 'auto' ? 'border-primary' : 'border-muted-foreground'
+                        }`}>
+                          {predictionMethod === 'auto' && (
+                            <div className="w-2 h-2 rounded-full bg-primary" />
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-semibold mb-1">Entraînement automatique</h4>
+                        <p className="text-sm text-muted-foreground">
+                          Le système entraînera automatiquement un modèle ML (LogisticRegression ou XGBoost)
+                        </p>
+                      </div>
+                    </div>
+                  </label>
+                  
+                  <label 
+                    className={`cursor-pointer border-2 rounded-lg p-4 transition-all ${
+                      predictionMethod === 'upload' 
+                        ? 'border-primary bg-primary/5' 
+                        : 'border-border hover:border-primary/50'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      value="upload"
+                      checked={predictionMethod === 'upload'}
+                      onChange={(e) => setPredictionMethod('upload')}
+                      className="sr-only"
+                    />
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5">
+                        <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                          predictionMethod === 'upload' ? 'border-primary' : 'border-muted-foreground'
+                        }`}>
+                          {predictionMethod === 'upload' && (
+                            <div className="w-2 h-2 rounded-full bg-primary" />
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-semibold mb-1">Uploader prédictions</h4>
+                        <p className="text-sm text-muted-foreground">
+                          Uploader un fichier CSV avec vos prédictions pré-calculées
+                        </p>
+                      </div>
+                    </div>
+                  </label>
+                </div>
+                
+                {/* Options spécifiques selon la méthode */}
+                {predictionMethod === 'auto' && (
+                  <div className="space-y-4 mt-6">
+                    <div>
+                      <Label>Algorithme (optionnel)</Label>
+                      <Select value={trainingAlgorithm} onValueChange={setTrainingAlgorithm}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="auto">Automatique (basé sur le cas d'usage)</SelectItem>
+                          <SelectItem value="logistic_regression">Logistic Regression</SelectItem>
+                          <SelectItem value="xgboost">XGBoost</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {trainingAlgorithm === 'auto' 
+                          ? 'Le système choisira LogisticRegression pour scoring/recrutement, XGBoost pour support/prédiction'
+                          : trainingAlgorithm === 'logistic_regression'
+                          ? 'Rapide et interprétable, idéal pour scoring et recrutement'
+                          : 'Plus performant, gère les non-linéarités, idéal pour support client'}
+                      </p>
+                    </div>
+                    
+                    {trainingStatus === 'training' && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div className="flex items-center gap-2">
+                          <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full" />
+                          <span className="text-sm font-medium">Entraînement du modèle en cours...</span>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {trainingStatus === 'completed' && (
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="h-4 w-4 text-green-600" />
+                          <span className="text-sm font-medium text-green-900">Modèle entraîné avec succès !</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {predictionMethod === 'upload' && (
+                  <div className="mt-6">
+                    <Label>Fichier de prédictions (CSV)</Label>
+                    <Input
+                      type="file"
+                      accept=".csv"
+                      onChange={(e) => setPredictionFile(e.target.files?.[0] || null)}
+                      className="mt-2"
+                    />
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Le fichier doit contenir les colonnes : <code className="bg-muted px-1 rounded">prediction</code> (obligatoire), 
+                      <code className="bg-muted px-1 rounded ml-1">probability</code> (optionnel)
+                    </p>
+                  </div>
+                )}
+              </div>
+              
+              <div className="flex justify-between mt-6">
+                <Button variant="outline" onClick={() => setStep(2)}>
+                  Retour
+                </Button>
+                <Button 
+                  onClick={async () => {
+                    if (predictionMethod === 'auto') {
+                      // Lancer l'entraînement
+                      setTrainingStatus('training')
+                      try {
+                        const response = await fetch(`${API_URL}/ml/datasets/${preview.dataset_id}/auto-train`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          credentials: 'include',
+                          body: JSON.stringify({
+                            target_column: config.target_column || preview.columns_info[0].name,
+                            feature_columns: null,
+                            algorithm: trainingAlgorithm === 'auto' ? null : trainingAlgorithm,
+                            use_case: config.use_case
+                          })
+                        })
+                        if (response.ok) {
+                          setTrainingStatus('completed')
+                          setTimeout(() => setStep(4), 1500)
+                        } else {
+                          setTrainingStatus('error')
+                        }
+                      } catch (error) {
+                        setTrainingStatus('error')
+                      }
+                    } else {
+                      // Upload prédictions
+                      if (!predictionFile) {
+                        alert('Veuillez sélectionner un fichier')
+                        return
+                      }
+                      const formData = new FormData()
+                      formData.append('predictions_file', predictionFile)
+                      try {
+                        const response = await fetch(`${API_URL}/ml/datasets/${preview.dataset_id}/upload-predictions`, {
+                          method: 'POST',
+                          credentials: 'include',
+                          body: formData
+                        })
+                        if (response.ok) {
+                          setStep(4)
+                        }
+                      } catch (error) {
+                        console.error(error)
+                      }
+                    }
+                  }}
+                  disabled={trainingStatus === 'training' || (predictionMethod === 'upload' && !predictionFile)}
+                >
+                  {predictionMethod === 'auto' ? 'Entraîner le modèle' : 'Uploader prédictions'}
+                </Button>
+              </div>
+            </Card>
+          )}
+
+          {step === 4 && preview && preview.columns_info && (
             <Card className="p-6 space-y-6">
               <div>
                 <h2 className="text-xl font-semibold mb-2">Configuration de l'audit</h2>
@@ -624,17 +904,36 @@ export default function UploadPage() {
                 </div>
 
                 <div className="space-y-2 md:col-span-2">
-                  <Label htmlFor="metric">Métriques de fairness *</Label>
-                  <p className="text-xs text-muted-foreground mb-2">
-                    Choisissez les métriques pour évaluer l'équité de votre modèle
-                  </p>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label htmlFor="metric">Métriques de fairness *</Label>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Choisissez les métriques pour évaluer l'équité de votre modèle
+                      </p>
+                    </div>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={config.fairness_metrics.length === FAIRNESS_METRICS.length}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            // Sélectionner toutes les métriques
+                            setConfig({ 
+                              ...config, 
+                              fairness_metrics: FAIRNESS_METRICS.map(m => m.value) 
+                            })
+                          } else {
+                            // Désélectionner toutes les métriques
+                            setConfig({ ...config, fairness_metrics: [] })
+                          }
+                        }}
+                        className="rounded"
+                      />
+                      <span className="text-sm font-medium">Tout sélectionner</span>
+                    </label>
+                  </div>
                   <div className="grid gap-2 md:grid-cols-2">
-                    {[
-                      { value: 'demographic_parity', label: 'Demographic Parity', desc: 'Égalité des taux de décisions positives' },
-                      { value: 'equal_opportunity', label: 'Equal Opportunity', desc: 'Égalité des vrais positifs' },
-                      { value: 'equalized_odds', label: 'Equalized Odds', desc: 'Égalité des vrais et faux positifs' },
-                      { value: 'disparate_impact', label: 'Disparate Impact', desc: 'Ratio des taux de sélection' },
-                    ].map((metric) => (
+                    {FAIRNESS_METRICS.map((metric) => (
                       <label key={metric.value} className="flex items-start gap-2 p-3 rounded-lg border hover:bg-accent cursor-pointer">
                         <input
                           type="checkbox"
@@ -778,7 +1077,7 @@ export default function UploadPage() {
         </main>
       </div>
 
-      {/* Missing Values Modal */}
+      {/* valeurs manquantes Modal */}
       <Dialog open={showMissingValuesModal} onOpenChange={setShowMissingValuesModal}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>

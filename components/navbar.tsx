@@ -6,6 +6,7 @@ import { AnimeNavBar } from '@/components/ui/anime-navbar'
 import { Home, Sparkles, DollarSign, BookOpen, FileText, Shield, Mail, LayoutDashboard, User, LogOut, Menu, X } from 'lucide-react'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { Logo } from '@/components/ui/logo'
+import { API_ENDPOINTS } from '@/lib/config/api'
 import Link from 'next/link'
 import {
   DropdownMenu,
@@ -37,7 +38,8 @@ export function Navbar() {
 
   const checkAuth = async () => {
     try {
-      const res = await fetch('/api/auth/me', {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+      const res = await fetch(`${API_URL}/auth/me`, {
         credentials: 'include'
       })
       
@@ -66,7 +68,7 @@ export function Navbar() {
 
   const handleLogout = async () => {
     try {
-      await fetch('/api/auth/logout', {
+      await fetch(API_ENDPOINTS.auth.logout, {
         method: 'POST',
         credentials: 'include',
       })

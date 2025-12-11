@@ -73,7 +73,9 @@ app.add_middleware(
 )
 
 # Include routers for profile management
-from routers import team, profile, auth, settings, upload, connections, mapping, audits, reports, ai_chat, eda
+from routers import team, profile, auth, settings, upload, connections, mapping, audits, reports, ai_chat, eda, fairness_enhanced, ml
+from routers import fairness_enhanced_advanced  # Advanced fairness analysis
+from routers import whatif  # What-If Tool
 app.include_router(auth.router)
 app.include_router(team.router)
 app.include_router(profile.router)
@@ -82,10 +84,14 @@ app.include_router(upload.router)
 app.include_router(connections.router)
 app.include_router(mapping.router)
 app.include_router(audits.router)
+app.include_router(ml.router)  # ML training and predictions
+app.include_router(fairness_enhanced.router)  # Enhanced fairness endpoints
+app.include_router(fairness_enhanced_advanced.router)  # Advanced analysis
+app.include_router(whatif.router)  # What-If Tool
 app.include_router(reports.router)
 app.include_router(ai_chat.router)
 app.include_router(eda.router)  # Auto EDA module
-print("[OK] Routers auth, team, profile, settings, upload, connections, mapping, audits, reports, ai_chat, eda inclus")
+print("[OK] Routers auth, team, profile, settings, upload, connections, mapping, audits, fairness_enhanced, fairness_enhanced_advanced, whatif, reports, ai_chat, eda inclus")
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 

@@ -331,7 +331,7 @@ async def get_dataset_details(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Récupère les détails d'un dataset"""
+    """Récupère les détails d'un dataset avec prévisualisation des données"""
     stmt = select(Dataset).where(
         Dataset.id == dataset_id,
         Dataset.user_id == current_user.id
@@ -345,6 +345,23 @@ async def get_dataset_details(
             detail="Dataset introuvable"
         )
     
+    # Charger le fichier pour obtenir preview_data
+    file_path = UPLOAD_DIR / dataset.filename
+    preview_data = []
+    
+    if file_path.exists():
+        try:
+            # Lire le fichier
+            if dataset.mime_type == 'text/csv':
+                df = pd.read_csv(file_path, encoding=dataset.encoding)
+            else:
+                df = pd.read_excel(file_path)
+            
+            # Prévisualisation des 50 premières lignes
+            preview_data = df.head(50).fillna('').to_dict('records')
+        except Exception as e:
+            print(f"Erreur lors du chargement du fichier: {e}")
+    
     return {
         'id': dataset.id,
         'filename': dataset.original_filename,
@@ -352,6 +369,7 @@ async def get_dataset_details(
         'row_count': dataset.row_count,
         'column_count': dataset.column_count,
         'columns_info': dataset.columns_info,
+        'preview_data': preview_data,  # Ajouté pour le refresh
         'status': dataset.status,
         'encoding': dataset.encoding,
         'use_case': dataset.use_case,

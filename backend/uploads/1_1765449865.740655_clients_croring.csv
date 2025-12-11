@@ -1,0 +1,21 @@
+client_id,age,genre,revenu_annuel,montant_credit,duree_mois,historique_paiement,taux_endettement,region,credit_approuve
+1,35,H,45000,15000,36,Bon,0.25,Ile-de-France,1
+2,28,F,32000,8000,24,Excellent,0.18,Provence-Alpes-Côte d'Azur,1
+3,52,H,38000,20000,48,Moyen,0.42,Auvergne-Rhône-Alpes,0
+4,41,F,55000,25000,60,Bon,0.35,Ile-de-France,1
+5,26,H,28000,5000,12,Excellent,0.15,Bretagne,1
+6,58,F,42000,18000,36,Médiocre,0.48,Nouvelle-Aquitaine,0
+7,33,H,50000,22000,48,Bon,0.32,Ile-de-France,1
+8,45,F,47000,12000,24,Excellent,0.22,Occitanie,1
+9,29,H,35000,10000,36,Moyen,0.28,Hauts-de-France,0
+10,54,F,40000,15000,36,Médiocre,0.45,Grand Est,0
+11,37,H,52000,20000,48,Bon,0.30,Ile-de-France,1
+12,31,F,48000,18000,36,Excellent,0.27,Provence-Alpes-Côte d'Azur,1
+13,48,H,36000,12000,24,Moyen,0.38,Pays de la Loire,0
+14,39,F,58000,28000,60,Bon,0.33,Ile-de-France,1
+15,27,H,30000,7000,24,Excellent,0.20,Bretagne,1
+16,56,F,41000,16000,36,Médiocre,0.46,Normandie,0
+17,34,H,49000,19000,48,Bon,0.31,Ile-de-France,1
+18,43,F,51000,21000,48,Excellent,0.29,Auvergne-Rhône-Alpes,1
+19,25,H,27000,6000,12,Moyen,0.22,Centre-Val de Loire,0
+20,51,F,39000,14000,36,Médiocre,0.44,Bourgogne-Franche-Comté,0

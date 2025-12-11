@@ -52,6 +52,15 @@ class Dataset(Base):
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, onupdate=func.now())
     
+    
+    # Colonnes de prédictions ML
+    has_predictions = Column(Boolean, default=False)
+    prediction_column = Column(String, nullable=True)
+    probability_column = Column(String, nullable=True)
+    model_type = Column(String, nullable=True)  # 'uploaded' ou 'auto_trained'
+    model_algorithm = Column(String, nullable=True)  # 'logistic_regression', 'xgboost'
+    model_metrics = Column(JSON, nullable=True)
+    
     # Relations
     user = relationship("User", back_populates="datasets")
     data_connection = relationship("DataConnection", back_populates="datasets")
@@ -98,6 +107,19 @@ class Audit(Base):
     # Timestamps
     created_at = Column(DateTime, server_default=func.now())
     completed_at = Column(DateTime, nullable=True)
+    
+    # Enhanced fairness features (new) - COMMENTED OUT until migration
+    # detailed_metrics = Column(JSON, nullable=True)  # Complete metrics from ComprehensiveFairnessCalculator
+    # ai_recommendations = Column(JSON, nullable=True)  # AI-generated recommendations from Gemini
+    # mitigation_recommendations = Column(JSON, nullable=True)  # Mitigation strategy recommendations
+    # mitigation_results = Column(JSON, nullable=True)  # Results from applied mitigation strategies
+    # disaggregated_metrics = Column(JSON, nullable=True)  # MetricFrame results per group
+    # group_metrics = Column(JSON, nullable=True)  # Detailed metrics for each group
+    
+    # Additional configuration - COMMENTED OUT until migration
+    # prediction_column = Column(String, nullable=True)  # Column with model predictions
+    # probability_column = Column(String, nullable=True)  # Column with prediction probabilities
+    # domain = Column(String, nullable=True)  # Domain/industry context
     
     # Relations
     dataset = relationship("Dataset", back_populates="audits")

@@ -1,20 +1,21 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Sidebar } from '@/components/dashboard/sidebar'
 import { DashboardHeader } from '@/components/dashboard/header'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { Plus, RefreshCw, Trash2, Settings, CheckCircle2, XCircle, Loader2, Database } from 'lucide-react'
-import { toast } from '@/hooks/use-toast'
+import { Database, Plus, Trash2, Edit, CheckCircle, XCircle, Loader2, Settings, CheckCircle2, RefreshCw } from 'lucide-react'
+import { useToast } from '@/hooks/use-toast'
+import { API_ENDPOINTS, API_URL } from '@/lib/config/api'
 import { ConnectionIcon } from '@/components/ui/connection-icons'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 interface ConnectionType {
   type: string
@@ -86,7 +87,7 @@ export default function ConnectionsPage() {
   const loadConnections = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`${API_URL}/connections/`, {
+      const response = await fetch(`${API_ENDPOINTS.connections}/`, {
         credentials: 'include'
       })
       

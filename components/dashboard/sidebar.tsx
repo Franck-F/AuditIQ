@@ -45,7 +45,8 @@ export function Sidebar() {
 
   const fetchUserProfile = async () => {
     try {
-      const res = await fetch('/api/auth/me', {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+      const res = await fetch(`${API_URL}/auth/me`, {
         credentials: 'include'
       })
       
@@ -131,7 +132,7 @@ export function Sidebar() {
           })}
         </div>
 
-        {/* User Profile */}
+        {/* utilisateur Profile */}
         {!collapsed && userProfile && (
           <div className="border-t border-border p-4">
             <div className="flex items-center gap-3">

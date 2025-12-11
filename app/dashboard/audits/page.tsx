@@ -101,9 +101,14 @@ export default function AuditsPage() {
                     name={audit.name || `Audit #${audit.id}`}
                     usecase={audit.use_case || 'N/A'}
                     score={audit.score ? Math.round(audit.score) : 0}
-                    status={audit.score && audit.score < 80 ? 'critical' : 'compliant'} // Simple logic for now
+                    status={
+                      !audit.score || audit.score === 0 ? 'warning' :
+                      audit.score >= 80 ? 'compliant' :
+                      audit.score >= 60 ? 'warning' :
+                      'critical'
+                    }
                     date={new Date(audit.created_at).toLocaleDateString()}
-                    biases={0} // To be implemented
+                    biases={audit.critical_bias_count || 0}
                   />
                 </Link>
               ))

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, use } from 'react'
 import { Sidebar } from '@/components/dashboard/sidebar'
 import { DashboardHeader } from '@/components/dashboard/header'
 import { Button } from '@/components/ui/button'
@@ -10,14 +10,15 @@ import { Badge } from '@/components/ui/badge'
 import { Download, AlertTriangle, CheckCircle2, TrendingUp, TrendingDown, BarChart3, Users, Target, Sparkles } from 'lucide-react'
 import { auditService } from '@/services/auditService'
 
-export default function AuditDetailPage({ params }: { params: { id: string } }) {
+export default function AuditDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params)
   const [audit, setAudit] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const fetchAudit = async () => {
       try {
-        const data = await auditService.getById(parseInt(params.id))
+        const data = await auditService.getById(parseInt(id))
         setAudit(data)
       } catch (error) {
         console.error('Failed to fetch audit:', error)
@@ -26,7 +27,7 @@ export default function AuditDetailPage({ params }: { params: { id: string } }) 
       }
     }
     fetchAudit()
-  }, [params.id])
+  }, [id])
 
   if (loading) return <div className="p-6">Chargement...</div>
   if (!audit) return <div className="p-6">Audit non trouvé</div>
