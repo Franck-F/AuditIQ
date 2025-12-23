@@ -44,3 +44,8 @@ slowapi>=0.1.9
 scipy>=1.11.0
 statsmodels>=0.14.0
 apscheduler>=3.10.0
+aiohttp>=3.9.0
+
+# Optional ML libraries (to fix warnings)
+xgboost>=2.0.0
+shap>=0.44.0
