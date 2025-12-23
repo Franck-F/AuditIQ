@@ -20,6 +20,7 @@ from db import AsyncSessionLocal
 from models.user import User
 from models.auth import LoginLog, PasswordResetToken
 from auth_middleware import get_current_user
+from services.email import send_verification_email, send_reset_password_email
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -445,12 +446,11 @@ async def forgot_password(
     db.add(reset_token)
     await db.commit()
     
-    # TODO: Envoyer email avec le lien
-    # reset_link = f"https://auditiq.com/reset-password?token={token}"
+    # Envoyer email avec le lien
+    await send_reset_password_email(request.email, token)
     
     return {
-        "message": "Si l'email existe, un lien de réinitialisation a été envoyé.",
-        "token": token  # À RETIRER EN PRODUCTION (debug only)
+        "message": "Si l'email existe, un lien de réinitialisation a été envoyé."
     }
 
 
@@ -568,14 +568,11 @@ async def register(
     await db.commit()
     await db.refresh(db_user)
 
-    # Simulation envoi email
-    print(f"📧 [EMAIL] Verification link for {user.email}: https://audit-iq.vercel.app/verify-email?token={verification_token}")
-
-    # Note: On ne connecte plus automatiquement l'utilisateur
+    # Envoi email de confirmation
+    await send_verification_email(user.email, verification_token)
     
     return {
-        "message": "Inscription réussie. Veuillez vérifier votre email.",
-        "debug_token": verification_token # À retirer en prod
+        "message": "Inscription réussie. Veuillez vérifier votre email pour activer votre compte."
     }
 
 

@@ -12,6 +12,7 @@ from pydantic import BaseModel, EmailStr
 from db import AsyncSessionLocal
 from models.user import User
 from auth_middleware import get_current_user, get_current_active_admin
+from services.email import send_invitation_email
 
 router = APIRouter(prefix="/api/team", tags=["team"])
 
@@ -122,10 +123,11 @@ async def invite_team_member(
             detail="User with this email already exists"
         )
     
-    # TODO: Send invitation email with signup link including company_id
+    # Send invitation email
+    await send_invitation_email(invite.email, current_user.company_name or "Audit-IQ", invite.role)
     
     return {
-        "message": "Invitation sent successfully",
+        "message": "Invitation sent successfully by email",
         "email": invite.email,
         "role": invite.role,
         "company_id": current_user.company_id
