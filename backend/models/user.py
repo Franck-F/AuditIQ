@@ -40,6 +40,10 @@ class User(Base):
     # F1.3.5: Compte actif/désactivé
     is_active = Column(Boolean, default=True)
     deleted_at = Column(DateTime, nullable=True)
+
+    # Verification Email
+    is_verified = Column(Boolean, default=False)
+    verification_token = Column(String, nullable=True)
     
     # F1.2.6: Verrouillage après tentatives échouées
     failed_login_attempts = Column(Integer, default=0)

@@ -87,6 +87,8 @@ export default function SignupPage() {
     }
   }
 
+  const [emailSent, setEmailSent] = useState(false)
+
   async function handleSubmit(selectedPlan: string) {
     setError(null)
     setLoading(true)
@@ -108,7 +110,7 @@ export default function SignupPage() {
     }
 
     try {
-      const res = await fetch(`${API_URL}/auth/register`, {
+      const res = await fetch(`${API_URL}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -133,9 +135,16 @@ export default function SignupPage() {
         setLoading(false)
         return
       }
+      
+      const data = await res.json()
+      
+      // Si en dev, on log le token pour le user
+      if (data.debug_token) {
+        console.log('DEBUG MODE: Verification Link:', `${window.location.origin}/verify-email?token=${data.debug_token}`)
+      }
 
-      // Server sets HttpOnly cookie for authentication. Redirect to onboarding.
-      router.push('/onboarding')
+      // Succès - Afficher le message de confirmation
+      setEmailSent(true)
     } catch (err) {
       setError(String(err))
     } finally {
@@ -213,7 +222,26 @@ export default function SignupPage() {
             </p>
           </div>
 
-          {currentStep === 1 ? (
+          {emailSent ? (
+            <div className="flex flex-col items-center justify-center space-y-6 py-8">
+              <div className="rounded-full bg-green-100 p-4 dark:bg-green-900/20">
+                <Mail className="h-12 w-12 text-green-600 dark:text-green-500" />
+              </div>
+              <div className="text-center space-y-2">
+                <h3 className="text-2xl font-bold">Vérifiez vos emails</h3>
+                <p className="text-muted-foreground max-w-sm">
+                  Nous avons envoyé un lien de confirmation à <strong>{email}</strong>.
+                  Cliquez sur ce lien pour activer votre compte.
+                </p>
+              </div>
+              <div className="bg-muted/50 p-4 rounded-lg text-sm text-center max-w-sm">
+                <p>Vous n'avez rien reçu ? Vérifiez vos spams ou réessayez dans quelques minutes.</p>
+              </div>
+              <Button onClick={() => router.push('/login')} className="w-full">
+                Aller à la connexion
+              </Button>
+            </div>
+          ) : currentStep === 1 ? (
             // ÉTAPE 1: FORMULAIRE D'INSCRIPTION
             <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); handleNextStep(); }}>
             <div className="grid grid-cols-2 gap-4">

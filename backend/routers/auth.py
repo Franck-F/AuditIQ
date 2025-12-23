@@ -1,5 +1,9 @@
 """
 Routeur d'authentification amélioré avec sécurité (F1.2)
+- Login avec protection brute-force
+- Inscription avec confirmation email
+- Réinitialisation mot de passe
+
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from fastapi.security import OAuth2PasswordRequestForm
@@ -237,6 +241,18 @@ async def login(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Compte désactivé. Contactez le support."
+        )
+
+    # Vérifier si l'email est confirmé
+    if not user.is_verified:
+        await log_login_attempt(
+            db, credentials.email, ip_address, user_agent,
+            success=False, user_id=user.id,
+            failure_reason="Email not verified"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Veuillez confirmer votre adresse email avant de vous connecter."
         )
     
     # Connexion réussie
@@ -530,6 +546,8 @@ async def register(
         raise HTTPException(status_code=400, detail="Email déjà utilisé")
 
     hashed_pw = hash_password(user.password)
+    verification_token = secrets.token_urlsafe(32)
+    
     db_user = User(
         email=user.email,
         hashed_password=hashed_pw,
@@ -543,25 +561,46 @@ async def register(
         dpo_contact=user.dpo_contact,
         plan=user.plan,
         onboarding_completed=0,
+        is_verified=False,
+        verification_token=verification_token
     )
     db.add(db_user)
     await db.commit()
     await db.refresh(db_user)
 
-    # Create access token
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.email}, expires_delta=access_token_expires
-    )
+    # Simulation envoi email
+    print(f"📧 [EMAIL] Verification link for {user.email}: https://audit-iq.vercel.app/verify-email?token={verification_token}")
 
-    # Set token as HttpOnly cookie
-    response.set_cookie(
-        key="access_token",
-        value=access_token,
-        httponly=True,
-        secure=True,
-        samesite="none",
-        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-    )
+    # Note: On ne connecte plus automatiquement l'utilisateur
+    
+    return {
+        "message": "Inscription réussie. Veuillez vérifier votre email.",
+        "debug_token": verification_token # À retirer en prod
+    }
 
-    return {"message": "registered"}
+
+@router.get("/verify-email/{token}")
+async def verify_email(
+    token: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """Vérifie l'email de l'utilisateur via le token"""
+    stmt = select(User).where(User.verification_token == token)
+    result = await db.execute(stmt)
+    user = result.scalars().first()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Token de vérification invalide"
+        )
+    
+    if user.is_verified:
+        return {"message": "Email déjà vérifié"}
+    
+    user.is_verified = True
+    user.verification_token = None
+    user.is_active = True # Activer le compte après vérification
+    await db.commit()
+    
+    return {"message": "Email vérifié avec succès. Vous pouvez maintenant vous connecter."}
