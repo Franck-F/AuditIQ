@@ -14,13 +14,23 @@ from models.user import User
 from models.data_connection import DataConnection, SyncHistory
 from models.dataset import Dataset
 from auth_middleware import get_current_user
-from connectors.base import BaseConnector
-from connectors.rest_api import RestApiConnector
-from connectors.google_sheets import GoogleSheetsConnector
+from connectors import (
+    BaseConnector, 
+    RestApiConnector, 
+    GoogleSheetsConnector,
+    SalesforceConnector,
+    HubSpotConnector,
+    WorkdayConnector,
+    BambooHRConnector,
+    PipedriveConnector,
+    ZendeskConnector
+)
 import pandas as pd
 from cryptography.fernet import Fernet
 import json
 import os
+import io
+from services.dataset_service import dataset_service
 
 router = APIRouter(prefix="/api/connections", tags=["connections"])
 
@@ -111,6 +121,12 @@ def get_connector(connection_type: str, config: Dict[str, Any], credentials: Opt
     connectors = {
         'rest_api': RestApiConnector,
         'google_sheets': GoogleSheetsConnector,
+        'salesforce': SalesforceConnector,
+        'hubspot': HubSpotConnector,
+        'workday': WorkdayConnector,
+        'bamboohr': BambooHRConnector,
+        'pipedrive': PipedriveConnector,
+        'zendesk': ZendeskConnector,
         # Ajouter d'autres connecteurs ici
     }
     
@@ -489,13 +505,28 @@ async def sync_connection(
         connection.last_sync = datetime.utcnow()
         connection.last_sync_status = 'success'
         
+        # F2.2.4: Sauvegarder comme dataset si demandé
+        dataset_id = None
+        if request.save_as_dataset:
+            dataset_name = request.dataset_name or f"Sync {connection.name} {datetime.now().strftime('%Y-%m-%d %H:%M')}"
+            dataset = await dataset_service.create_dataset_from_df(
+                db=db,
+                df=df,
+                user_id=current_user.id,
+                original_filename=f"{dataset_name}.csv",
+                mime_type="text/csv",
+                connection_id=connection_id
+            )
+            dataset_id = dataset.id
+        
         await db.commit()
         
         return {
             "success": True,
             "rows_fetched": len(df),
             "columns": list(df.columns),
-            "preview": df.head(5).to_dict('records')
+            "preview": df.head(5).to_dict('records'),
+            "dataset_id": dataset_id
         }
         
     except Exception as e:

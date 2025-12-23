@@ -9,26 +9,46 @@ import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Plus, Search, Filter, BarChart3, Clock, ArrowRight } from 'lucide-react'
+import { Plus, Search, Filter, BarChart3, Clock, ArrowRight, AlertTriangle, Target } from 'lucide-react'
 import { auditService } from '../../../services/auditService'
 
 export default function AuditsPage() {
   const [audits, setAudits] = useState<any[]>([])
+  const [stats, setStats] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
 
   useEffect(() => {
-    const fetchAudits = async () => {
+    const fetchData = async () => {
       try {
-        const data = await auditService.getAll()
-        setAudits(data)
+        const [auditsData, statsData] = await Promise.all([
+          auditService.getAll(),
+          auditService.getStats()
+        ])
+        setAudits(auditsData)
+        setStats(statsData)
       } catch (error) {
-        console.error('Failed to fetch audits:', error)
+        console.error('Failed to fetch data:', error)
       } finally {
         setLoading(false)
       }
     }
-    fetchAudits()
+    fetchData()
   }, [])
+
+  const filteredAudits = audits.filter(audit => {
+    const matchesSearch = audit.name?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          audit.use_case?.toLowerCase().includes(searchTerm.toLowerCase())
+    
+    const risk = !audit.score || audit.score === 0 ? 'warning' :
+                 audit.score >= 80 ? 'compliant' :
+                 audit.score >= 60 ? 'warning' : 'critical'
+    
+    const matchesStatus = statusFilter === 'all' || risk === statusFilter
+    
+    return matchesSearch && matchesStatus
+  })
 
   return (
     <div className="flex min-h-screen">
@@ -41,7 +61,7 @@ export default function AuditsPage() {
             <div className="space-y-2">
               <h1 className="text-3xl font-bold tracking-tight">Tous les audits</h1>
               <p className="text-muted-foreground">
-                Gérez et consultez l'historique de vos audits de fairness
+                Gerez et consultez l'historique de vos audits de fairness
               </p>
             </div>
             <Link href="/dashboard/upload">
@@ -52,14 +72,56 @@ export default function AuditsPage() {
             </Link>
           </div>
 
+          {/* Stats Cards */}
+          <div className="grid gap-6 md:grid-cols-3">
+            <Card className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="rounded-lg bg-primary/10 p-3">
+                  <BarChart3 className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Audits Totaux</p>
+                  <p className="text-2xl font-bold">{stats?.total_audits || 0}</p>
+                </div>
+              </div>
+            </Card>
+            <Card className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="rounded-lg bg-red-500/10 p-3">
+                  <AlertTriangle className="h-6 w-6 text-red-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Audits Critiques</p>
+                  <p className="text-2xl font-bold">{stats?.critical_biases || 0}</p>
+                </div>
+              </div>
+            </Card>
+            <Card className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="rounded-lg bg-green-500/10 p-3">
+                  <Target className="h-6 w-6 text-green-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Score d'Equite Moyen</p>
+                  <p className="text-2xl font-bold">{stats?.avg_fairness_score || 0}%</p>
+                </div>
+              </div>
+            </Card>
+          </div>
+
           {/* Filters */}
           <Card className="p-6">
             <div className="grid gap-4 md:grid-cols-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input placeholder="Rechercher..." className="pl-10" />
+                <Input 
+                  placeholder="Rechercher..." 
+                  className="pl-10" 
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
               </div>
-              <Select defaultValue="all">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger>
                   <SelectValue placeholder="Statut" />
                 </SelectTrigger>
@@ -78,12 +140,11 @@ export default function AuditsPage() {
                   <SelectItem value="all">Tous les cas</SelectItem>
                   <SelectItem value="recruitment">Recrutement</SelectItem>
                   <SelectItem value="scoring">Scoring</SelectItem>
-                  <SelectItem value="support">Support client</SelectItem>
                 </SelectContent>
               </Select>
               <Button variant="outline" className="gap-2">
                 <Filter className="h-4 w-4" />
-                Plus de filtres
+                Réinitialiser
               </Button>
             </div>
           </Card>
@@ -92,14 +153,14 @@ export default function AuditsPage() {
           <div className="space-y-4">
             {loading ? (
               <div className="text-center py-8">Chargement...</div>
-            ) : audits.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">Aucun audit trouvé</div>
+            ) : filteredAudits.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">Aucun audit trouve</div>
             ) : (
-              audits.map((audit) => (
+              filteredAudits.map((audit) => (
                 <Link key={audit.id} href={`/dashboard/audits/${audit.id}`}>
                   <AuditCard
                     name={audit.name || `Audit #${audit.id}`}
-                    usecase={audit.use_case || 'N/A'}
+                    usecase={audit.use_case || 'General'}
                     score={audit.score ? Math.round(audit.score) : 0}
                     status={
                       !audit.score || audit.score === 0 ? 'warning' :

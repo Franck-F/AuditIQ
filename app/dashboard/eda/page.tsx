@@ -6,7 +6,7 @@ import { DashboardHeader } from '@/components/dashboard/header'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Plus, TrendingUp, Database, BarChart3, AlertTriangle } from 'lucide-react'
+import { Plus, TrendingUp, Database, BarChart3, AlertTriangle, Eye } from 'lucide-react'
 import Link from 'next/link'
 import { edaService, type MorningReport, type EDADataSource } from '@/services/edaService'
 
@@ -128,9 +128,17 @@ export default function EDADashboard() {
           {/* Morning Report */}
           {latestReport && latestReport.findings && latestReport.findings.length > 0 && (
             <Card>
-              <CardHeader>
-                <CardTitle>Rapport du Jour</CardTitle>
-                <CardDescription>{latestReport.title}</CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Rapport du Jour</CardTitle>
+                  <CardDescription>{latestReport.title}</CardDescription>
+                </div>
+                <Button variant="outline" size="sm" asChild>
+                  <Link href={`/dashboard/eda/analyses/${latestReport.metadata.analysis_id}`}>
+                    <Eye className="mr-2 h-4 w-4" />
+                    Voir détails
+                  </Link>
+                </Button>
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-sm">{latestReport.summary}</p>

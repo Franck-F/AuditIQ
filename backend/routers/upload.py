@@ -12,23 +12,16 @@ import chardet
 import hashlib
 import io
 import os
-from pathlib import Path
-
-from db import AsyncSessionLocal
-from models.user import User
-from models.dataset import Dataset
-from auth_middleware import get_current_user
-from anonymization import apply_anonymization, get_anonymization_methods
-from missing_values import (
-    analyze_missing_values,
-    handle_missing_values,
-    get_all_strategies_info
-)
 from utils.proxy_detection import (
     detect_proxy_variables,
     format_proxy_report,
     get_proxy_explanation
 )
+from utils.dataset_processing import detect_encoding, get_column_info, detect_column_types
+from utils.anonymization import apply_anonymization, get_anonymization_methods
+from utils.missing_values import analyze_missing_values, handle_missing_values, get_all_strategies_info
+from services.supabase_storage import storage_service
+from services.dataset_service import dataset_service
 
 router = APIRouter(prefix="/api/upload", tags=["upload"])
 
@@ -98,86 +91,6 @@ class DatasetInfo(BaseModel):
     anonymized: bool
 
 
-def detect_encoding(file_content: bytes) -> str:
-    """Détecte l'encodage du fichier"""
-    result = chardet.detect(file_content)
-    encoding = result['encoding']
-    
-    # Normaliser les encodages communs
-    if encoding and encoding.lower() in ['ascii', 'utf-8', 'utf8']:
-        return 'utf-8'
-    elif encoding and 'iso-8859' in encoding.lower():
-        return 'iso-8859-1'
-    
-    return encoding or 'utf-8'
-
-
-def calculate_file_hash(content: bytes) -> str:
-    """Calcule le hash SHA256 du fichier"""
-    return hashlib.sha256(content).hexdigest()
-
-
-def detect_column_types(df: pd.DataFrame) -> Dict[str, str]:
-    """Détecte automatiquement les types de colonnes"""
-    column_types = {}
-    
-    for col in df.columns:
-        dtype = df[col].dtype
-        
-        # Essayer de détecter les dates
-        if dtype == 'object':
-            try:
-                pd.to_datetime(df[col].dropna().head(100))
-                column_types[col] = 'date'
-                continue
-            except:
-                pass
-        
-        # Classification par type pandas
-        if pd.api.types.is_numeric_dtype(dtype):
-            if pd.api.types.is_integer_dtype(dtype):
-                column_types[col] = 'numeric_integer'
-            else:
-                column_types[col] = 'numeric_float'
-        elif pd.api.types.is_bool_dtype(dtype):
-            column_types[col] = 'boolean'
-        elif pd.api.types.is_categorical_dtype(dtype) or df[col].nunique() < 20:
-            column_types[col] = 'categorical'
-        else:
-            column_types[col] = 'text'
-    
-    return column_types
-
-
-def get_column_info(df: pd.DataFrame) -> List[Dict[str, Any]]:
-    """Extrait les informations détaillées sur chaque colonne"""
-    columns_info = []
-    column_types = detect_column_types(df)
-    
-    for col in df.columns:
-        null_count = df[col].isnull().sum()
-        unique_count = df[col].nunique()
-        
-        info = {
-            'name': col,
-            'type': column_types[col],
-            'null_count': int(null_count),
-            'null_percentage': float(null_count / len(df) * 100),
-            'unique_count': int(unique_count),
-            'sample_values': df[col].dropna().head(5).tolist() if unique_count < 100 else []
-        }
-        
-        # Ajouter des stats pour les colonnes numériques
-        if column_types[col] in ['numeric_integer', 'numeric_float']:
-            info['min'] = float(df[col].min()) if not pd.isna(df[col].min()) else None
-            info['max'] = float(df[col].max()) if not pd.isna(df[col].max()) else None
-            info['mean'] = float(df[col].mean()) if not pd.isna(df[col].mean()) else None
-            info['median'] = float(df[col].median()) if not pd.isna(df[col].median()) else None
-        
-        columns_info.append(info)
-    
-    return columns_info
-
 
 @router.post("/file", response_model=DatasetPreview)
 async def upload_file(
@@ -241,54 +154,34 @@ async def upload_file(
                    f"Ce fichier contient {len(df):,} lignes."
         )
     
-    # F2.1.6: Détection automatique des types de colonnes
-    column_types = detect_column_types(df)
-    
     # F2.1.7: Gestion des valeurs manquantes
     missing_values = {col: int(df[col].isnull().sum()) for col in df.columns}
     
     # F2.1.5: Prévisualisation des 50 premières lignes
     preview_data = df.head(50).fillna('').to_dict('records')
     
-    # Obtenir les informations détaillées sur les colonnes
-    columns_info = get_column_info(df)
-    
-    # Sauvegarder le fichier sur disque
-    safe_filename = f"{current_user.id}_{datetime.utcnow().timestamp()}_{file.filename}"
-    file_path = UPLOAD_DIR / safe_filename
-    
-    with open(file_path, 'wb') as f:
-        f.write(content)
-    
-    # Créer l'entrée dans la base de données
-    dataset = Dataset(
+    dataset = await dataset_service.create_dataset_from_df(
+        db=db,
+        df=df,
         user_id=current_user.id,
-        filename=safe_filename,
+        organization_id=current_user.organization_id,
         original_filename=file.filename,
-        file_size=file_size,
-        file_hash=file_hash,
         mime_type=file.content_type,
-        encoding=encoding,
-        row_count=len(df),
-        column_count=len(df.columns),
-        columns_info={'columns': columns_info},
-        status='ready',
-        retention_date=datetime.utcnow() + timedelta(days=30)
+        encoding=encoding
     )
     
-    db.add(dataset)
-    await db.commit()
-    await db.refresh(dataset)
-    
+    # Extraire les infos de colonnes depuis le dataset créé
+    columns_info = dataset.columns_info.get('columns', []) if isinstance(dataset.columns_info, dict) else dataset.columns_info
+
     return DatasetPreview(
         dataset_id=dataset.id,
-        filename=file.filename,
-        row_count=len(df),
-        column_count=len(df.columns),
+        filename=dataset.original_filename,
+        row_count=dataset.row_count,
+        column_count=dataset.column_count,
         columns_info=columns_info,
         preview_data=preview_data,
-        encoding=encoding,
-        file_size=file_size,
+        encoding=dataset.encoding,
+        file_size=dataset.file_size,
         missing_values=missing_values,
         detected_types=column_types
     )
@@ -299,10 +192,15 @@ async def list_datasets(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Liste tous les datasets de l'utilisateur"""
-    stmt = select(Dataset).where(
-        Dataset.user_id == current_user.id
-    ).order_by(Dataset.created_at.desc())
+    """Liste tous les datasets de l'utilisateur ou de son organisation"""
+    if current_user.organization_id:
+        stmt = select(Dataset).where(
+            Dataset.organization_id == current_user.organization_id
+        ).order_by(Dataset.created_at.desc())
+    else:
+        stmt = select(Dataset).where(
+            Dataset.user_id == current_user.id
+        ).order_by(Dataset.created_at.desc())
     
     result = await db.execute(stmt)
     datasets = result.scalars().all()
@@ -332,10 +230,16 @@ async def get_dataset_details(
     current_user: User = Depends(get_current_user)
 ):
     """Récupère les détails d'un dataset avec prévisualisation des données"""
-    stmt = select(Dataset).where(
-        Dataset.id == dataset_id,
-        Dataset.user_id == current_user.id
-    )
+    if current_user.organization_id:
+        stmt = select(Dataset).where(
+            Dataset.id == dataset_id,
+            Dataset.organization_id == current_user.organization_id
+        )
+    else:
+        stmt = select(Dataset).where(
+            Dataset.id == dataset_id,
+            Dataset.user_id == current_user.id
+        )
     result = await db.execute(stmt)
     dataset = result.scalar_one_or_none()
     
@@ -346,16 +250,27 @@ async def get_dataset_details(
         )
     
     # Charger le fichier pour obtenir preview_data
-    file_path = UPLOAD_DIR / dataset.filename
     preview_data = []
+    content = None
     
-    if file_path.exists():
+    # Tenter de charger depuis Supabase d'abord
+    if storage_service.is_available():
+        content = await storage_service.download_file(dataset.filename)
+    
+    # Sinon charger depuis le disque local
+    if content is None:
+        file_path = UPLOAD_DIR / dataset.filename
+        if file_path.exists():
+            with open(file_path, 'rb') as f:
+                content = f.read()
+    
+    if content:
         try:
-            # Lire le fichier
-            if dataset.mime_type == 'text/csv':
-                df = pd.read_csv(file_path, encoding=dataset.encoding)
+            # Lire le contenu
+            if dataset.mime_type == 'text/csv' or dataset.filename.endswith('.csv'):
+                df = pd.read_csv(io.BytesIO(content), encoding=dataset.encoding)
             else:
-                df = pd.read_excel(file_path)
+                df = pd.read_excel(io.BytesIO(content))
             
             # Prévisualisation des 50 premières lignes
             preview_data = df.head(50).fillna('').to_dict('records')
@@ -389,10 +304,18 @@ async def delete_dataset(
     current_user: User = Depends(get_current_user)
 ):
     """Supprime un dataset"""
-    stmt = select(Dataset).where(
-        Dataset.id == dataset_id,
-        Dataset.user_id == current_user.id
-    )
+    if current_user.organization_id:
+        # Seul l'admin ou le propriétaire peut supprimer ? 
+        # Pour l'instant, check organisation simple
+        stmt = select(Dataset).where(
+            Dataset.id == dataset_id,
+            Dataset.organization_id == current_user.organization_id
+        )
+    else:
+        stmt = select(Dataset).where(
+            Dataset.id == dataset_id,
+            Dataset.user_id == current_user.id
+        )
     result = await db.execute(stmt)
     dataset = result.scalar_one_or_none()
     
@@ -402,7 +325,11 @@ async def delete_dataset(
             detail="Dataset introuvable"
         )
     
-    # Supprimer le fichier physique
+    # Supprimer du stockage Supabase
+    if storage_service.is_available():
+        await storage_service.delete_file(dataset.filename)
+    
+    # Supprimer le fichier physique local (si existant)
     file_path = UPLOAD_DIR / dataset.filename
     if file_path.exists():
         file_path.unlink()
@@ -421,19 +348,17 @@ async def configure_dataset(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Configure un dataset pour l'audit de fairness
-    
-    Enregistre en base de données:
-    - use_case: Cas d'usage (recruitment, scoring, etc.)
-    - target_column: Variable cible à prédire
-    - sensitive_attributes: Liste des attributs sensibles (genre, âge, etc.)
-    - fairness_metrics: Liste des métriques de fairness à calculer
-    - proxy_variables: Variables proxy détectées ou spécifiées
-    """
-    stmt = select(Dataset).where(
-        Dataset.id == dataset_id,
-        Dataset.user_id == current_user.id
-    )
+    """Configure un dataset pour l'audit de fairness"""
+    if current_user.organization_id:
+        stmt = select(Dataset).where(
+            Dataset.id == dataset_id,
+            Dataset.organization_id == current_user.organization_id
+        )
+    else:
+        stmt = select(Dataset).where(
+            Dataset.id == dataset_id,
+            Dataset.user_id == current_user.id
+        )
     result = await db.execute(stmt)
     dataset = result.scalar_one_or_none()
     
@@ -492,10 +417,19 @@ async def configure_dataset(
                 )
                 
                 # Sauvegarder le fichier anonymisé (remplace l'original)
-                if dataset.mime_type == 'text/csv':
-                    df_anonymized.to_csv(file_path, index=False, encoding=dataset.encoding)
+                if dataset.mime_type == 'text/csv' or dataset.filename.endswith('.csv'):
+                    new_content = df_anonymized.to_csv(index=False, encoding=dataset.encoding).encode(dataset.encoding)
                 else:
-                    df_anonymized.to_excel(file_path, index=False)
+                    output = io.BytesIO()
+                    df_anonymized.to_excel(output, index=False)
+                    new_content = output.getvalue()
+                
+                if storage_service.is_available():
+                    await storage_service.upload_file(dataset.filename, new_content, dataset.mime_type)
+                else:
+                    file_path = UPLOAD_DIR / dataset.filename
+                    with open(file_path, 'wb') as f:
+                        f.write(new_content)
                 
                 # Marquer comme anonymisé
                 dataset.anonymized = True
@@ -563,19 +497,28 @@ async def get_missing_values_analysis(
             detail="Dataset introuvable"
         )
     
-    # Charger le fichier
-    file_path = UPLOAD_DIR / dataset.filename
-    if not file_path.exists():
+    # Récupérer le contenu du fichier
+    content = None
+    if storage_service.is_available():
+        content = await storage_service.download_file(dataset.filename)
+    
+    if content is None:
+        file_path = UPLOAD_DIR / dataset.filename
+        if file_path.exists():
+            with open(file_path, 'rb') as f:
+                content = f.read()
+    
+    if content is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Fichier dataset introuvable"
         )
     
     # Lire le fichier
-    if dataset.mime_type == 'text/csv':
-        df = pd.read_csv(file_path, encoding=dataset.encoding)
+    if dataset.mime_type == 'text/csv' or dataset.filename.endswith('.csv'):
+        df = pd.read_csv(io.BytesIO(content), encoding=dataset.encoding)
     else:
-        df = pd.read_excel(file_path)
+        df = pd.read_excel(io.BytesIO(content))
     
     # Analyser les valeurs manquantes
     missing_analysis = analyze_missing_values(df)
@@ -636,11 +579,20 @@ async def apply_missing_values_treatment(
         # Appliquer le traitement
         df_clean = handle_missing_values(df, request.strategy)
         
-        # Sauvegarder le fichier nettoyé
-        if dataset.mime_type == 'text/csv':
-            df_clean.to_csv(file_path, index=False, encoding=dataset.encoding)
+        # Sauvegarder le fichier nettoyé (Supabase ou Local)
+        if dataset.mime_type == 'text/csv' or dataset.filename.endswith('.csv'):
+            new_content = df_clean.to_csv(index=False, encoding=dataset.encoding).encode(dataset.encoding)
         else:
-            df_clean.to_excel(file_path, index=False)
+            output = io.BytesIO()
+            df_clean.to_excel(output, index=False)
+            new_content = output.getvalue()
+        
+        if storage_service.is_available():
+            await storage_service.upload_file(dataset.filename, new_content, dataset.mime_type)
+        else:
+            file_path = UPLOAD_DIR / dataset.filename
+            with open(file_path, 'wb') as f:
+                f.write(new_content)
         
         # Mettre à jour les statistiques
         dataset.row_count = len(df_clean)
@@ -715,9 +667,18 @@ async def detect_proxy_variables_endpoint(
             detail="Aucun attribut sensible configuré."
         )
     
-    # Charger le fichier
-    file_path = UPLOAD_DIR / dataset.filename
-    if not file_path.exists():
+    # Charger le contenu du fichier
+    content = None
+    if storage_service.is_available():
+        content = await storage_service.download_file(dataset.filename)
+    
+    if content is None:
+        file_path = UPLOAD_DIR / dataset.filename
+        if file_path.exists():
+            with open(file_path, 'rb') as f:
+                content = f.read()
+    
+    if content is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Fichier dataset introuvable"
@@ -725,10 +686,10 @@ async def detect_proxy_variables_endpoint(
     
     try:
         # Lire le fichier
-        if dataset.mime_type == 'text/csv':
-            df = pd.read_csv(file_path, encoding=dataset.encoding)
+        if dataset.mime_type == 'text/csv' or dataset.filename.endswith('.csv'):
+            df = pd.read_csv(io.BytesIO(content), encoding=dataset.encoding)
         else:
-            df = pd.read_excel(file_path)
+            df = pd.read_excel(io.BytesIO(content))
         
         # Détecter les variables proxy
         proxy_results = detect_proxy_variables(

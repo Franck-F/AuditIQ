@@ -1,36 +1,109 @@
 'use client'
 
 import { useState, useEffect, use } from 'react'
+import dynamic from 'next/dynamic'
 import { Sidebar } from '@/components/dashboard/sidebar'
 import { DashboardHeader } from '@/components/dashboard/header'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { AIChatButton } from '@/components/dashboard/ai/AIChatButton'
 import { Badge } from '@/components/ui/badge'
 import { Download, AlertTriangle, CheckCircle2, TrendingUp, TrendingDown, BarChart3, Users, Target, Sparkles } from 'lucide-react'
 import { auditService } from '@/services/auditService'
 
+// Dynamic import for Plotly to avoid SSR issues
+const Plot = dynamic(() => import('react-plotly.js'), { ssr: false })
+
 export default function AuditDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const [audit, setAudit] = useState<any>(null)
+  const [edaData, setEdaData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const fetchAudit = async () => {
+    const fetchData = async () => {
       try {
-        const data = await auditService.getById(parseInt(id))
-        setAudit(data)
+        const auditIdIdx = parseInt(id)
+        const [auditRes, edaRes] = await Promise.all([
+          auditService.getById(auditIdIdx),
+          fetch(`${process.env.NEXT_PUBLIC_API_URL}/audits/${auditIdIdx}/eda`, { credentials: 'include' }).then(r => r.json())
+        ])
+        setAudit(auditRes)
+        setEdaData(edaRes)
       } catch (error) {
-        console.error('Failed to fetch audit:', error)
+        console.error('Failed to fetch data:', error)
       } finally {
         setLoading(false)
       }
     }
-    fetchAudit()
+    fetchData()
   }, [id])
 
+  const [downloading, setDownloading] = useState(false)
+
+  const handleDownloadReport = async () => {
+    if (!audit) return
+    setDownloading(true)
+    try {
+      // 1. Déclencher la génération
+      const genRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reports/generate/${audit.id}`, {
+        credentials: 'include'
+      })
+      if (!genRes.ok) throw new Error('Erreur generation rapport')
+      
+      // 2. Déclencher le téléchargement
+      window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/reports/${audit.id}/download`
+    } catch (error) {
+      console.error('Download failed:', error)
+    } finally {
+      setDownloading(false)
+    }
+  }
+
   if (loading) return <div className="p-6">Chargement...</div>
-  if (!audit) return <div className="p-6">Audit non trouvé</div>
+  if (!audit) return <div className="p-6 font-bold text-red-500">Audit non trouvé</div>
+
+  const metrics = audit.metrics_results || {}
+  const overallScore = audit.overall_score || 0
+  
+  // Mapping des métriques pour l'affichage
+  const metricMapping: Record<string, { label: string, desc: string }> = {
+    "demographic_parity": { label: "Demographic Parity", desc: "Disparité dans les taux d'acceptation" },
+    "equal_opportunity": { label: "Equal Opportunity", desc: "Écart dans les vrais positifs" },
+    "equalized_odds": { label: "Equalized Odds", desc: "Équilibre taux FP et FN" },
+    "predictive_parity": { label: "Predictive Parity", desc: "Parité valeur prédictive positive" },
+    "calibration": { label: "Calibration", desc: "Fiabilité des probabilités prédictives" },
+    "statistical_parity_difference": { label: "Statistical Parity Diff", desc: "Différence de taux de sélection" },
+    "disparate_impact": { label: "Disparate Impact", desc: "Ratio des taux de sélection" },
+    "average_odds_difference": { label: "Avg Odds Diff", desc: "Moyenne des écarts de TPR et FPR" },
+    "error_rate_balance": { label: "Error Rate Balance", desc: "Équilibre des erreurs globales" },
+    "false_positive_rate_parity": { label: "FPR Parity", desc: "Parité des faux positifs" },
+    "false_negative_rate_parity": { label: "FNR Parity", desc: "Parité des faux négatifs" },
+    "true_positive_rate_parity": { label: "TPR Parity", desc: "Parité des vrais positifs" },
+    "true_negative_rate_parity": { label: "TNR Parity", desc: "Parité des vrais négatifs" },
+    "positive_predictive_parity": { label: "PPV Parity", desc: "Parité précision positive" },
+    "negative_predictive_parity": { label: "NPV Parity", desc: "Parité précision négative" },
+    "treatment_equality": { label: "Treatment Equality", desc: "Ratio des erreurs FN/FP" }
+  }
+
+  // Extraire les métriques réelles calculées
+  const displayMetrics: any[] = []
+  if (audit.sensitive_attributes && audit.sensitive_attributes.length > 0) {
+    const attr = audit.sensitive_attributes[0] // On prend le premier pour l'affichage principal
+    Object.keys(metricMapping).forEach(mKey => {
+      const fullKey = `${attr}_${mKey}`
+      if (metrics[fullKey] !== undefined) {
+        displayMetrics.push({
+          key: mKey,
+          label: metricMapping[mKey].label,
+          desc: metricMapping[mKey].desc,
+          value: metrics[fullKey] / 100, // Retourner au format 0-1
+          status: metrics[fullKey] >= 80 ? 'success' : metrics[fullKey] >= 60 ? 'warning' : 'critical'
+        })
+      }
+    })
+  }
 
   return (
     <div className="flex min-h-screen">
@@ -43,38 +116,25 @@ export default function AuditDetailPage({ params }: { params: Promise<{ id: stri
             <div className="space-y-2">
               <div className="flex items-center gap-3">
                 <h1 className="text-3xl font-bold tracking-tight">{audit.name}</h1>
-                {audit.score && audit.score < 80 && (
+                {overallScore < 80 && (
                   <Badge variant="destructive" className="gap-1">
                     <AlertTriangle className="h-3 w-3" />
-                    Biais critiques
+                    Biais détectés
                   </Badge>
                 )}
               </div>
               <p className="text-muted-foreground">
-                Audit réalisé le {new Date(audit.created_at).toLocaleDateString()}
+                Audit réalise le {new Date(audit.created_at).toLocaleDateString()}
               </p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-3">
               <Button 
-                variant="outline" 
-                className="gap-2"
-                onClick={async () => {
-                  try {
-                    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reports/generate/${id}`, {
-                      credentials: 'include'
-                    })
-                    if (response.ok) {
-                      const data = await response.json()
-                      // Télécharger le PDF
-                      window.open(`${process.env.NEXT_PUBLIC_API_URL}/reports/${id}/download`, '_blank')
-                    }
-                  } catch (error) {
-                    console.error('Erreur génération PDF:', error)
-                  }
-                }}
+                className="gap-2" 
+                onClick={handleDownloadReport}
+                disabled={downloading}
               >
                 <Download className="h-4 w-4" />
-                Rapport PDF
+                {downloading ? "Génération..." : "Rapport PDF"}
               </Button>
               <Button className="gap-2 glow-primary">
                 <Sparkles className="h-4 w-4" />
@@ -83,39 +143,46 @@ export default function AuditDetailPage({ params }: { params: Promise<{ id: stri
             </div>
           </div>
 
-          {/* Global Score */}
+          {/* Global Score Card */}
           <Card className="p-8">
             <div className="grid gap-8 md:grid-cols-3">
               <div className="space-y-2">
                 <p className="text-sm font-medium text-muted-foreground">Score d'équité global</p>
                 <div className="flex items-end gap-3">
-                  <p className="text-5xl font-bold text-gradient">72%</p>
-                  <Badge variant="destructive" className="mb-2">Critique</Badge>
+                  <p className="text-5xl font-bold text-gradient">{Math.round(overallScore)}%</p>
+                  <Badge 
+                    variant={overallScore >= 80 ? 'default' : overallScore >= 60 ? 'outline' : 'destructive'} 
+                    className="mb-2"
+                  >
+                    {audit.risk_level || (overallScore >= 80 ? 'Low' : overallScore >= 60 ? 'Medium' : 'High')}
+                  </Badge>
                 </div>
-                <p className="text-sm text-muted-foreground">Seuil minimal : 80%</p>
+                <p className="text-sm text-muted-foreground">Moyenne des 16 métriques</p>
               </div>
               <div className="space-y-2">
                 <p className="text-sm font-medium text-muted-foreground">Conformité réglementaire</p>
                 <div className="flex items-end gap-3">
-                  <p className="text-5xl font-bold">68%</p>
-                  <div className="flex items-center gap-1 text-red-500 mb-2">
-                    <TrendingDown className="h-4 w-4" />
-                    <span className="text-sm font-medium">Non conforme</span>
+                  <p className="text-5xl font-bold">{overallScore >= 80 ? '100%' : Math.round(overallScore * 0.8)}%</p>
+                  <div className={`flex items-center gap-1 mb-2 ${overallScore >= 80 ? 'text-green-500' : 'text-orange-500'}`}>
+                    {overallScore >= 80 ? <CheckCircle2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+                    <span className="text-sm font-medium">{overallScore >= 80 ? 'Conforme' : 'Attention'}</span>
                   </div>
                 </div>
-                <p className="text-sm text-muted-foreground">AI Act Article 10</p>
+                <p className="text-sm text-muted-foreground">AI Act Index (Estimé)</p>
               </div>
               <div className="space-y-2">
                 <p className="text-sm font-medium text-muted-foreground">Biais détectés</p>
-                <p className="text-5xl font-bold">3</p>
+                <p className="text-5xl font-bold">
+                  {Object.values(metrics).filter((v: any) => v < 80).length}
+                </p>
                 <div className="flex gap-2 mt-2">
                   <span className="inline-flex items-center gap-1 text-xs font-medium text-red-500">
                     <span className="h-2 w-2 rounded-full bg-red-500" />
-                    2 critiques
+                    {Object.values(metrics).filter((v: any) => v < 60).length} critiques
                   </span>
                   <span className="inline-flex items-center gap-1 text-xs font-medium text-yellow-500">
                     <span className="h-2 w-2 rounded-full bg-yellow-500" />
-                    1 modéré
+                    {Object.values(metrics).filter((v: any) => v >= 60 && v < 80).length} modérés
                   </span>
                 </div>
               </div>
@@ -127,270 +194,303 @@ export default function AuditDetailPage({ params }: { params: Promise<{ id: stri
             <TabsList>
               <TabsTrigger value="metrics" className="gap-2">
                 <BarChart3 className="h-4 w-4" />
-                Métriques
+                Métriques ({displayMetrics.length})
               </TabsTrigger>
               <TabsTrigger value="groups" className="gap-2">
                 <Users className="h-4 w-4" />
-                Groupes
+                Analyses Groupes
               </TabsTrigger>
               <TabsTrigger value="recommendations" className="gap-2">
                 <Target className="h-4 w-4" />
-                Recommandations
+                Recommandations Gemini
+              </TabsTrigger>
+              <TabsTrigger value="eda" className="gap-2">
+                <BarChart3 className="h-4 w-4" />
+                Exploration EDA
               </TabsTrigger>
             </TabsList>
 
             {/* Metrics Tab */}
             <TabsContent value="metrics" className="space-y-6">
-              <div className="grid gap-6 md:grid-cols-2">
-                <MetricCard
-                  title="Demographic Parity"
-                  value={0.65}
-                  threshold={0.8}
-                  status="critical"
-                  description="Disparité dans les taux d'acceptation entre groupes"
-                  groups={[
-                    { name: 'Hommes', value: 85, total: 100 },
-                    { name: 'Femmes', value: 55, total: 100 }
-                  ]}
-                />
-                <MetricCard
-                  title="Equal Opportunity"
-                  value={0.72}
-                  threshold={0.8}
-                  status="warning"
-                  description="Écart dans les vrais positifs entre groupes"
-                  groups={[
-                    { name: 'Groupe A', value: 78, total: 100 },
-                    { name: 'Groupe B', value: 56, total: 100 }
-                  ]}
-                />
-                <MetricCard
-                  title="Equalized Odds"
-                  value={0.89}
-                  threshold={0.8}
-                  status="success"
-                  description="Équilibre des faux positifs et négatifs"
-                  groups={[
-                    { name: 'Groupe A', value: 92, total: 100 },
-                    { name: 'Groupe B', value: 82, total: 100 }
-                  ]}
-                />
-                <MetricCard
-                  title="Predictive Parity"
-                  value={0.76}
-                  threshold={0.8}
-                  status="warning"
-                  description="Parité dans la valeur prédictive positive"
-                  groups={[
-                    { name: 'Groupe A', value: 84, total: 100 },
-                    { name: 'Groupe B', value: 64, total: 100 }
-                  ]}
-                />
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {displayMetrics.map((m, idx) => (
+                  <MetricCard
+                    key={idx}
+                    title={m.label}
+                    value={m.value}
+                    threshold={0.8}
+                    status={m.status}
+                    description={m.desc}
+                    groups={[]} // On ne peut pas facilement extraire les groupes pour chaque métrique ici
+                  />
+                ))}
               </div>
 
-              {/* Detailed Analysis */}
+              {/* Detailed Analysis from AI */}
               <Card className="p-6 space-y-4">
-                <h3 className="text-lg font-semibold">Analyse détaillée</h3>
+                <h3 className="text-lg font-semibold">Analyse automatique (Insights)</h3>
                 <div className="space-y-4">
-                  <AnalysisItem
-                    type="critical"
-                    title="Disparité importante dans le scoring"
-                    description="Les femmes ont 30% moins de chances d'être acceptées que les hommes à score équivalent"
-                    metric="Demographic Parity: 0.65"
-                  />
-                  <AnalysisItem
-                    type="warning"
-                    title="Variables proxy détectées"
-                    description="La variable 'secteur d'activité' est corrélée à 0.78 avec le genre et influence la décision"
-                    metric="Corrélation: 0.78"
-                  />
-                  <AnalysisItem
-                    type="info"
-                    title="Performance globale"
-                    description="Le modèle a une précision de 87% mais avec des disparités entre groupes"
-                    metric="Accuracy: 87%"
-                  />
+                  {audit.ai_recommendations?.insights?.map((insight: any, idx: number) => (
+                    <AnalysisItem
+                      key={idx}
+                      type={insight.type || 'info'}
+                      title={insight.title}
+                      description={insight.description}
+                      metric={insight.impact}
+                    />
+                  )) || (
+                    <p className="text-muted-foreground text-sm italic">Aucun insight spécifique genere.</p>
+                  )}
                 </div>
               </Card>
             </TabsContent>
 
             {/* Groups Tab */}
             <TabsContent value="groups" className="space-y-6">
-              <div className="grid gap-6 md:grid-cols-2">
-                <Card className="p-6">
-                  <h3 className="text-lg font-semibold mb-4">Performance par genre</h3>
-                  <div className="space-y-4">
-                    <GroupPerformance
-                      name="Hommes"
-                      accepted={850}
-                      total={1000}
-                      avgScore={78}
-                      color="bg-blue-500"
-                    />
-                    <GroupPerformance
-                      name="Femmes"
-                      accepted={550}
-                      total={1000}
-                      avgScore={76}
-                      color="bg-pink-500"
-                    />
-                  </div>
-                  <div className="mt-6 pt-6 border-t border-border">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Disparate Impact</span>
-                      <span className="font-semibold text-red-500">0.65 (Non conforme)</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Règle des 80% : Le taux d'acceptation du groupe défavorisé devrait être ≥ 80% du groupe favorisé
-                    </p>
-                  </div>
-                </Card>
-
-                <Card className="p-6">
-                  <h3 className="text-lg font-semibold mb-4">Performance par âge</h3>
-                  <div className="space-y-4">
-                    <GroupPerformance
-                      name="18-35 ans"
-                      accepted={620}
-                      total={800}
-                      avgScore={75}
-                      color="bg-green-500"
-                    />
-                    <GroupPerformance
-                      name="36-55 ans"
-                      accepted={710}
-                      total={900}
-                      avgScore={79}
-                      color="bg-yellow-500"
-                    />
-                    <GroupPerformance
-                      name="56+ ans"
-                      accepted={245}
-                      total={300}
-                      avgScore={77}
-                      color="bg-orange-500"
-                    />
-                  </div>
-                  <div className="mt-6 pt-6 border-t border-border">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Disparate Impact</span>
-                      <span className="font-semibold text-green-500">0.83 (Conforme)</span>
-                    </div>
-                  </div>
-                </Card>
-              </div>
-
-              {/* Intersectional Analysis */}
               <Card className="p-6">
-                <h3 className="text-lg font-semibold mb-4">Analyse intersectionnelle</h3>
-                <p className="text-sm text-muted-foreground mb-6">
-                  Analyse des biais combinés selon plusieurs attributs sensibles
-                </p>
-                <div className="grid gap-4 md:grid-cols-3">
-                  <IntersectionalCard
-                    group="Femmes 18-35 ans"
-                    rate={52}
-                    status="critical"
-                  />
-                  <IntersectionalCard
-                    group="Hommes 18-35 ans"
-                    rate={78}
-                    status="success"
-                  />
-                  <IntersectionalCard
-                    group="Femmes 36-55 ans"
-                    rate={58}
-                    status="warning"
-                  />
-                  <IntersectionalCard
-                    group="Hommes 36-55 ans"
-                    rate={82}
-                    status="success"
-                  />
-                  <IntersectionalCard
-                    group="Femmes 56+ ans"
-                    rate={48}
-                    status="critical"
-                  />
-                  <IntersectionalCard
-                    group="Hommes 56+ ans"
-                    rate={88}
-                    status="success"
-                  />
-                </div>
+                <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5 text-primary" />
+                  Performances par Segment et Attribut
+                </h3>
+                
+                {audit.group_metrics && Object.keys(audit.group_metrics).length > 0 ? (
+                  <div className="space-y-12">
+                    {Object.entries(audit.group_metrics).map(([attr, groups]: [string, any]) => {
+                      const names = Object.keys(groups)
+                      const values = names.map(n => groups[n].selection_rate * 100)
+                      const scores = names.map(n => groups[n].avg_score || 0)
+
+                      return (
+                        <div key={attr} className="space-y-4">
+                          <h4 className="font-medium text-muted-foreground border-b pb-2">Attribut: {attr}</h4>
+                          <div className="grid lg:grid-cols-2 gap-8">
+                            <div className="h-[350px] bg-card rounded-lg border p-4">
+                              <Plot
+                                data={[
+                                  {
+                                    x: names,
+                                    y: values,
+                                    type: 'bar',
+                                    marker: { color: '#4F46E5' },
+                                    name: 'Taux d\'acceptation (%)'
+                                  }
+                                ]}
+                                layout={{
+                                  autosize: true,
+                                  title: `Taux d'acceptation par ${attr}`,
+                                  margin: { t: 40, b: 40, l: 40, r: 20 },
+                                  paper_bgcolor: 'rgba(0,0,0,0)',
+                                  plot_bgcolor: 'rgba(0,0,0,0)',
+                                  font: { color: '#888' },
+                                  yaxis: { range: [0, 100] }
+                                }}
+                                useResizeHandler={true}
+                                className="w-full h-full"
+                                config={{ responsive: true, displayModeBar: false }}
+                              />
+                            </div>
+                            <div className="h-[350px] bg-card rounded-lg border p-4">
+                              <Plot
+                                data={[
+                                  {
+                                    x: names,
+                                    y: scores,
+                                    type: 'scatter',
+                                    mode: 'lines+markers',
+                                    marker: { color: '#10B981', size: 10 },
+                                    line: { shape: 'spline' },
+                                    name: 'Score Moyen'
+                                  }
+                                ]}
+                                layout={{
+                                  autosize: true,
+                                  title: `Score moyen par ${attr}`,
+                                  margin: { t: 40, b: 40, l: 40, r: 20 },
+                                  paper_bgcolor: 'rgba(0,0,0,0)',
+                                  plot_bgcolor: 'rgba(0,0,0,0)',
+                                  font: { color: '#888' },
+                                  yaxis: { range: [0, 100] }
+                                }}
+                                useResizeHandler={true}
+                                className="w-full h-full"
+                                config={{ responsive: true, displayModeBar: false }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-center py-12 text-muted-foreground italic">
+                    Aucune donnee de performance par groupe disponible.
+                  </p>
+                )}
               </Card>
+
+              {/* Intersectional Card could also be upgraded later if needed */}
             </TabsContent>
 
             {/* Recommendations Tab */}
             <TabsContent value="recommendations" className="space-y-6">
-              <Card className="p-6 space-y-6">
-                <div>
-                  <h3 className="text-lg font-semibold mb-2">Recommandations prioritaires</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Actions recommandées par ordre de priorité pour corriger les biais détectés
-                  </p>
+              <div className="space-y-6">
+                <div className="grid gap-4">
+                  {audit.mitigation_recommendations?.recommendations?.map((rec: any, idx: number) => (
+                    <RecommendationCard
+                      key={idx}
+                      priority={(rec.priority || 'medium').toLowerCase() as any}
+                      title={rec.name || rec.strategy}
+                      description={rec.description || rec.reasoning}
+                      impact={rec.impact || rec.expected_impact || `Impact: ${rec.benefit}`}
+                      effort={rec.effort || rec.complexity || 'Medium'}
+                      technique={rec.technique || rec.type || 'in-processing'}
+                      audit={audit}
+                    />
+                  )) || (
+                    <Card className="p-8 text-center text-muted-foreground">
+                      Aucune recommandation de mitigation recue.
+                    </Card>
+                  )}
                 </div>
+              </div>
+            </TabsContent>
 
-                <div className="space-y-4">
-                  <RecommendationCard
-                    priority="critical"
-                    title="Reweighting des échantillons"
-                    description="Appliquer une pondération aux données d'entraînement pour équilibrer les groupes sous-représentés"
-                    impact="Amélioration estimée du score : +18%"
-                    effort="Moyen"
-                    technique="pre-processing"
-                  />
-                  <RecommendationCard
-                    priority="high"
-                    title="Ajustement des seuils de décision"
-                    description="Calibrer les seuils de décision spécifiquement pour chaque groupe protégé"
-                    impact="Amélioration estimée du score : +12%"
-                    effort="Faible"
-                    technique="post-processing"
-                  />
-                  <RecommendationCard
-                    priority="medium"
-                    title="Suppression variable proxy"
-                    description="Retirer ou transformer la variable 'secteur d'activité' corrélée au genre"
-                    impact="Amélioration estimée du score : +8%"
-                    effort="Faible"
-                    technique="feature-engineering"
-                  />
-                  <RecommendationCard
-                    priority="medium"
-                    title="Resampling stratifié"
-                    description="Augmenter les données du groupe minoritaire par sur-échantillonnage"
-                    impact="Amélioration estimée du score : +7%"
-                    effort="Moyen"
-                    technique="pre-processing"
-                  />
-                </div>
-              </Card>
+            {/* EDA Exploration Tab */}
+            <TabsContent value="eda" className="space-y-6">
+              {edaData ? (
+                <>
+                  <div className="grid gap-6 md:grid-cols-4">
+                    <Card className="p-6">
+                      <p className="text-sm font-medium text-muted-foreground">Lignes</p>
+                      <p className="text-2xl font-bold">{edaData.summary.row_count.toLocaleString()}</p>
+                    </Card>
+                    <Card className="p-6">
+                      <p className="text-sm font-medium text-muted-foreground">Colonnes</p>
+                      <p className="text-2xl font-bold">{edaData.summary.col_count}</p>
+                    </Card>
+                    <Card className="p-6">
+                      <p className="text-sm font-medium text-muted-foreground">Données manquantes</p>
+                      <p className={`text-2xl font-bold ${edaData.data_quality.total_missing > 0 ? 'text-red-500' : 'text-green-500'}`}>
+                        {edaData.data_quality.total_missing}
+                      </p>
+                    </Card>
+                    <Card className="p-6">
+                      <p className="text-sm font-medium text-muted-foreground">Doublons</p>
+                      <p className={`text-2xl font-bold ${edaData.data_quality.duplicate_rows > 0 ? 'text-yellow-500' : 'text-green-500'}`}>
+                        {edaData.data_quality.duplicate_rows}
+                      </p>
+                    </Card>
+                  </div>
 
-              {/* Action Plan */}
-              <Card className="p-6 space-y-4">
-                <h3 className="text-lg font-semibold">Plan d'action</h3>
-                <div className="space-y-3">
-                  <ActionItem
-                    status="pending"
-                    title="Appliquer le reweighting"
-                    assignee="Data Science Team"
-                    deadline="Dans 5 jours"
-                  />
-                  <ActionItem
-                    status="pending"
-                    title="Ajuster les seuils de décision"
-                    assignee="ML Engineering Team"
-                    deadline="Dans 7 jours"
-                  />
-                  <ActionItem
-                    status="pending"
-                    title="Valider les corrections"
-                    assignee="Compliance Officer"
-                    deadline="Dans 14 jours"
-                  />
+                  <div className="grid lg:grid-cols-2 gap-6">
+                    {/* Correlation Heatmap */}
+                    <Card className="p-6">
+                      <h3 className="text-lg font-semibold mb-6">Matrice de Corrélation</h3>
+                      <div className="h-[400px]">
+                        <Plot
+                          data={[
+                            {
+                              z: edaData.correlation_matrix.data,
+                              x: edaData.correlation_matrix.columns,
+                              y: edaData.correlation_matrix.columns,
+                              type: 'heatmap',
+                              colorscale: 'RdBu',
+                              zmin: -1,
+                              zmax: 1
+                            }
+                          ]}
+                          layout={{
+                            autosize: true,
+                            margin: { t: 0, b: 50, l: 100, r: 20 },
+                            paper_bgcolor: 'rgba(0,0,0,0)',
+                            plot_bgcolor: 'rgba(0,0,0,0)',
+                            font: { color: '#888' }
+                          }}
+                          useResizeHandler={true}
+                          className="w-full h-full"
+                          config={{ responsive: true, displayModeBar: false }}
+                        />
+                      </div>
+                    </Card>
+
+                    {/* Distributions View */}
+                    <Card className="p-6">
+                      <h3 className="text-lg font-semibold mb-6">Distributions des Variables</h3>
+                      <div className="grid gap-4 max-h-[400px] overflow-y-auto pr-2">
+                        {Object.entries(edaData.distributions).map(([name, dist]: [string, any]) => (
+                          <div key={name} className="space-y-2 border-b pb-4 last:border-0">
+                            <p className="text-sm font-medium capitalize">{name}</p>
+                            <div className="h-[120px]">
+                              <Plot
+                                data={[
+                                  {
+                                    x: dist.labels,
+                                    y: dist.counts,
+                                    type: 'bar',
+                                    marker: { color: dist.type === 'numeric' ? '#4F46E5' : '#10B981' }
+                                  }
+                                ]}
+                                layout={{
+                                  autosize: true,
+                                  margin: { t: 0, b: 20, l: 30, r: 10 },
+                                  paper_bgcolor: 'rgba(0,0,0,0)',
+                                  plot_bgcolor: 'rgba(0,0,0,0)',
+                                  showlegend: false,
+                                  font: { size: 10, color: '#999' }
+                                }}
+                                useResizeHandler={true}
+                                className="w-full h-full"
+                                config={{ responsive: true, displayModeBar: false }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </Card>
+                  </div>
+
+                  {/* Stats Table */}
+                  <Card className="p-6">
+                    <h3 className="text-lg font-semibold mb-6">Statistiques Descriptives</h3>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted text-left">
+                          <tr>
+                            <th className="p-3 font-medium">Colonne</th>
+                            <th className="p-3 font-medium">Type</th>
+                            <th className="p-3 font-medium">Unique</th>
+                            <th className="p-3 font-medium">Manquant</th>
+                            <th className="p-3 font-medium">Moyenne / Top</th>
+                            <th className="p-3 font-medium">Min</th>
+                            <th className="p-3 font-medium">Max</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {edaData.descriptive_stats.map((col: any) => (
+                            <tr key={col.name} className="hover:bg-muted/50 transition-colors">
+                              <td className="p-3 font-medium">{col.name}</td>
+                              <td className="p-3 text-muted-foreground">{col.type}</td>
+                              <td className="p-3">{col.unique_count}</td>
+                              <td className="p-3">
+                                <Badge variant={col.missing_count > 0 ? 'outline' : 'secondary'} className={col.missing_count > 0 ? 'text-orange-500' : ''}>
+                                  {col.missing_count} ({col.missing_pct.toFixed(1)}%)
+                                </Badge>
+                              </td>
+                              <td className="p-3">{col.mean !== undefined ? col.mean.toFixed(2) : col.top}</td>
+                              <td className="p-3">{col.min !== undefined ? col.min.toFixed(2) : '-'}</td>
+                              <td className="p-3">{col.max !== undefined ? col.max.toFixed(2) : '-'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </Card>
+                </>
+              ) : (
+                <div className="flex items-center justify-center p-20">
+                  <p className="text-lg text-muted-foreground animate-pulse">Calcul de l'analyse exploratoire en cours...</p>
                 </div>
-              </Card>
+              )}
             </TabsContent>
           </Tabs>
         </main>
@@ -563,7 +663,8 @@ function RecommendationCard({
   description,
   impact,
   effort,
-  technique
+  technique,
+  audit
 }: {
   priority: 'critical' | 'high' | 'medium'
   title: string
@@ -571,6 +672,7 @@ function RecommendationCard({
   impact: string
   effort: string
   technique: string
+  audit: any
 }) {
   const priorityBadges = {
     critical: <Badge variant="destructive">Priorité critique</Badge>,
@@ -607,10 +709,75 @@ function RecommendationCard({
         size="sm" 
         className="w-full gap-2"
         onClick={() => {
-          // Générer le code Python pour cette recommandation
-          const pythonCode = `# Recommandation: ${title}\n# ${description}\n\nimport pandas as pd\nfrom fairlearn.reductions import ExponentiatedGradient, DemographicParity\nfrom sklearn.linear_model import LogisticRegression\n\n# Charger vos données\ndf = pd.read_csv('votre_dataset.csv')\n\n# Définir les colonnes\ntarget_column = 'votre_target'\nsensitive_column = 'votre_attribut_sensible'\n\n# Préparer les données\nX = df.drop(columns=[target_column, sensitive_column])\ny = df[target_column]\nsensitive_features = df[sensitive_column]\n\n# Appliquer la mitigation\nmitigator = ExponentiatedGradient(\n    LogisticRegression(),\n    constraints=DemographicParity()\n)\n\nmitigator.fit(X, y, sensitive_features=sensitive_features)\n\n# Prédictions avec mitigation\ny_pred = mitigator.predict(X)\n\nprint('Mitigation appliquée avec succès!')\n`
+          const target = audit.target_column || 'target'
+          const sensitive = (audit.sensitive_attributes && audit.sensitive_attributes[0]) || 'sensitive_attr'
+          const tech = technique?.toLowerCase().replace('-', '') || 'inprocessing'
           
-          // Télécharger le fichier
+          let snippet = ''
+
+          if (tech === 'preprocessing') {
+            snippet = `
+# Strategie: Pre-processing (Correlation Remover)
+from fairlearn.preprocessing import CorrelationRemover
+
+# Charger vos donnees
+df = pd.read_csv('votre_dataset.csv')
+target_column = '${target}'
+sensitive_column = '${sensitive}'
+
+# Selectionner les features a traiter (exclure sensitive et target)
+X = df.drop(columns=[target_column, sensitive_column])
+
+# Supprimer la correlation indirecte
+remover = CorrelationRemover(sensitive_feature_ids=[sensitive_column], alpha=1.0)
+X_transformed = remover.fit_transform(X)
+
+print('Correlation supprimee avec succes!')`
+          } else if (tech === 'postprocessing') {
+            snippet = `
+# Strategie: Post-processing (Threshold Optimizer)
+from fairlearn.postprocessing import ThresholdOptimizer
+
+# Charger votre modele deja entraine 'base_model'
+# threshold_optimizer = ThresholdOptimizer(
+#     estimator=base_model,
+#     constraints='demographic_parity',
+#     predict_method='predict_proba'
+# )
+
+# threshold_optimizer.fit(X, y, sensitive_features=df['${sensitive}'])
+# y_pred = threshold_optimizer.predict(X, sensitive_features=df['${sensitive}'])
+
+print('Optimisation des seuils par groupe preparee!')`
+          } else {
+            snippet = `
+# Strategie: In-processing (Exponentiated Gradient)
+from fairlearn.reductions import ExponentiatedGradient, DemographicParity
+from sklearn.linear_model import LogisticRegression
+
+# Parametres
+target_column = '${target}'
+sensitive_column = '${sensitive}'
+
+mitigator = ExponentiatedGradient(
+    LogisticRegression(max_iter=1000),
+    constraints=DemographicParity()
+)
+
+# mitigator.fit(X, y, sensitive_features=df[sensitive_column])
+print('Optimisation sous contraintes (Fairlearn) initialisee!')`
+          }
+
+          const pythonCode = `# Recommandation: ${title}
+# Description: ${description}
+# Technique: ${technique}
+
+import pandas as pd
+import numpy as np
+${snippet}
+
+# Note: Ce code est un guide. Assurez-vous d'avoir installe 'fairlearn'.
+`
           const blob = new Blob([pythonCode], { type: 'text/plain' })
           const url = URL.createObjectURL(blob)
           const a = document.createElement('a')

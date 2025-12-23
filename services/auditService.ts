@@ -46,5 +46,13 @@ export const auditService = {
       credentials: 'include'
     })
     if (!response.ok) throw new Error('Failed to delete audit')
+  },
+
+  getStats: async (): Promise<any> => {
+    const response = await fetch(`${API_URL}/audits/stats`, {
+      credentials: 'include'
+    })
+    if (!response.ok) throw new Error('Failed to fetch audit stats')
+    return response.json()
   }
 }

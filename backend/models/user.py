@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, DateTime, Boolean, func
+from sqlalchemy import Column, String, Integer, DateTime, Boolean, func, ForeignKey
 from sqlalchemy.orm import relationship
 from db import Base
 
@@ -30,7 +30,9 @@ class User(Base):
     role = Column(String, default='admin')  # admin, auditor, reader
     
     # F1.3.2: Gestion multi-utilisateurs
-    company_id = Column(String, nullable=True)  # ID de l'entreprise pour regrouper les utilisateurs
+    company_id = Column(String, nullable=True)  # Legacy company ID
+    organization_id = Column(Integer, ForeignKey('organizations.id'), nullable=True)
+    organization = relationship("Organization", back_populates="users")
     
     # F1.3.4: Paramètres de compte
     notifications_enabled = Column(Boolean, default=True)

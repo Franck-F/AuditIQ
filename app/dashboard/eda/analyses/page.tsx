@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { CheckCircle2, Clock, XCircle, Loader2, Eye } from 'lucide-react'
+import Link from 'next/link'
 import { edaService, type EDAAnalysis } from '@/services/edaService'
 
 export default function AnalysesPage() {
@@ -132,9 +133,11 @@ export default function AnalysesPage() {
                         </TableCell>
                         <TableCell>
                           {analysis.status === 'completed' && (
-                            <Button variant="ghost" size="sm">
-                              <Eye className="h-4 w-4 mr-2" />
-                              Voir
+                            <Button variant="ghost" size="sm" asChild>
+                              <Link href={`/dashboard/eda/analyses/${analysis.id}`}>
+                                <Eye className="h-4 w-4 mr-2" />
+                                Voir
+                              </Link>
                             </Button>
                           )}
                         </TableCell>

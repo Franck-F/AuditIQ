@@ -16,6 +16,7 @@ from models.user import User
 from db import AsyncSessionLocal
 from auth_middleware import get_current_user
 from services.eda import AnomalyDetector, RootCauseAnalyzer, EDAReportGenerator
+from services.eda.eda_service import EDAService
 from connectors.base import BaseConnector
 
 router = APIRouter(prefix="/api/eda", tags=["Auto EDA"])
@@ -380,17 +381,20 @@ async def execute_eda_analysis(
                 )
                 anomaly.update(root_cause)
             
-            # 4. Sauvegarder les résultats
+            # 4. Générer le rapport complet via EDAService
+            eda_service = EDAService()
+            # Note: Pour l'instant on utilise le DF chargé. 
+            # Dans une version future, on passera la cible/sensibles si configurés dans l'analyse.
+            eda_report = eda_service.generate_eda_report(df)
+            
+            # 5. Sauvegarder les résultats
             analysis.top_anomalies = anomalies[:3]
             analysis.all_findings_count = len(anomalies)
-            analysis.summary_stats = {
-                "total_rows": len(df),
-                "metrics_analyzed": list(analysis.metrics_config.keys())
-            }
+            analysis.summary_stats = eda_report
             analysis.status = "completed"
             analysis.completed_at = datetime.utcnow()
             
-            # 5. Créer les findings en DB
+            # 6. Créer les findings en DB
             for anomaly in anomalies:
                 finding = AnomalyFinding(
                     analysis_id=analysis.id,
@@ -404,7 +408,7 @@ async def execute_eda_analysis(
                 db.add(finding)
             
             await db.commit()
-            logger.info(f"Completed EDA analysis {analysis_id}")
+            logger.info(f"Completed EDAService analysis for EDA {analysis_id}")
             
         except Exception as e:
             logger.error(f"Error in EDA analysis {analysis_id}: {e}")

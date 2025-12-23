@@ -13,6 +13,7 @@ class Dataset(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    organization_id = Column(Integer, ForeignKey('organizations.id'), nullable=True)
     connection_id = Column(Integer, ForeignKey('data_connections.id'), nullable=True)
     
     # Métadonnées fichier
@@ -63,6 +64,7 @@ class Dataset(Base):
     
     # Relations
     user = relationship("User", back_populates="datasets")
+    organization = relationship("Organization", back_populates="datasets")
     data_connection = relationship("DataConnection", back_populates="datasets")
     audits = relationship("Audit", back_populates="dataset", cascade="all, delete-orphan")
 
@@ -75,6 +77,7 @@ class Audit(Base):
     id = Column(Integer, primary_key=True, index=True)
     dataset_id = Column(Integer, ForeignKey('datasets.id'), nullable=False)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    organization_id = Column(Integer, ForeignKey('organizations.id'), nullable=True)
     
     # Configuration
     audit_name = Column(String, nullable=False)
@@ -108,19 +111,20 @@ class Audit(Base):
     created_at = Column(DateTime, server_default=func.now())
     completed_at = Column(DateTime, nullable=True)
     
-    # Enhanced fairness features (new) - COMMENTED OUT until migration
-    # detailed_metrics = Column(JSON, nullable=True)  # Complete metrics from ComprehensiveFairnessCalculator
-    # ai_recommendations = Column(JSON, nullable=True)  # AI-generated recommendations from Gemini
-    # mitigation_recommendations = Column(JSON, nullable=True)  # Mitigation strategy recommendations
-    # mitigation_results = Column(JSON, nullable=True)  # Results from applied mitigation strategies
-    # disaggregated_metrics = Column(JSON, nullable=True)  # MetricFrame results per group
-    # group_metrics = Column(JSON, nullable=True)  # Detailed metrics for each group
+    # Enhanced fairness features (new)
+    detailed_metrics = Column(JSON, nullable=True)  # Complete metrics from ComprehensiveFairnessCalculator
+    ai_recommendations = Column(JSON, nullable=True)  # AI-generated recommendations from Gemini
+    mitigation_recommendations = Column(JSON, nullable=True)  # Mitigation strategy recommendations
+    mitigation_results = Column(JSON, nullable=True)  # Results from applied mitigation strategies
+    disaggregated_metrics = Column(JSON, nullable=True)  # MetricFrame results per group
+    group_metrics = Column(JSON, nullable=True)  # Detailed metrics for each group
     
-    # Additional configuration - COMMENTED OUT until migration
-    # prediction_column = Column(String, nullable=True)  # Column with model predictions
-    # probability_column = Column(String, nullable=True)  # Column with prediction probabilities
-    # domain = Column(String, nullable=True)  # Domain/industry context
+    # Additional configuration
+    prediction_column = Column(String, nullable=True)  # Column with model predictions
+    probability_column = Column(String, nullable=True)  # Column with prediction probabilities
+    domain = Column(String, nullable=True)  # Domain/industry context
     
     # Relations
     dataset = relationship("Dataset", back_populates="audits")
     user = relationship("User", back_populates="audits")
+    organization = relationship("Organization", back_populates="audits")

@@ -388,45 +388,31 @@ class BiasMitigationEngine:
     ) -> List[Dict[str, Any]]:
         """
         Recommend mitigation strategies based on metrics and context
-        
-        Args:
-            fairness_metrics: Current fairness metrics
-            context: Additional context (data size, use case, etc.)
-        
-        Returns:
-            List of recommended strategies with rationale
         """
         recommendations = []
+        overall_score = context.get('overall_score', 100)
         
         # Check for high demographic parity violation
         dp_violations = [k for k, v in fairness_metrics.items() 
-                        if 'demographic_parity' in k and abs(v) > 0.1]
+                        if 'demographic_parity' in k and abs(v) < 80] # < 80% signale un biais
         
-        if dp_violations:
+        if dp_violations or overall_score < 80:
             recommendations.append({
-                "strategy": "threshold_optimizer",
-                "priority": "High",
-                "rationale": "Quick fix for demographic parity violations",
-                "expected_improvement": "20-40% reduction in disparity",
-                "implementation_time": "< 1 day"
+                "strategy": "Threshold Optimizer",
+                "technique": "postprocessing",
+                "priority": "Haute",
+                "description": "Ajustement rapide des seuils de decision par groupe protege.",
+                "impact": "+15-20% d'equite",
+                "effort": "Faible"
             })
             
             recommendations.append({
-                "strategy": "exponentiated_gradient",
-                "priority": "Medium",
-                "rationale": "More robust long-term solution",
-                "expected_improvement": "30-50% reduction in disparity",
-                "implementation_time": "2-3 days"
-            })
-        
-        # Check for feature correlation issues
-        if context.get("high_feature_correlation", False):
-            recommendations.append({
-                "strategy": "correlation_remover",
-                "priority": "High",
-                "rationale": "Features correlated with sensitive attributes",
-                "expected_improvement": "Reduces indirect discrimination",
-                "implementation_time": "< 1 day"
+                "strategy": "Exponentiated Gradient",
+                "technique": "inprocessing",
+                "priority": "Moyenne",
+                "description": "Optimisation robuste lors du re-entrainement du modele.",
+                "impact": "+25-30% d'equite",
+                "effort": "Moyen"
             })
         
         return recommendations

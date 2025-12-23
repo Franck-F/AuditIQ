@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import pandas as pd
@@ -11,7 +11,7 @@ from db import AsyncSessionLocal
 from models.user import User
 from models.dataset import Dataset, Audit
 from auth_middleware import get_current_user
-from services.fairness import calculate_fairness_metrics
+from services.eda.eda_service import EDAService
 
 router = APIRouter(prefix="/api/audits", tags=["audits"])
 UPLOAD_DIR = Path("uploads")
@@ -77,39 +77,46 @@ async def run_audit_task(audit_id: int, dataset_path: Path, config: Dict[str, An
             
             y_true = df[target_col]
             y_pred = df[dataset.prediction_column]
+            
+            y_prob = None
+            if dataset.probability_column and dataset.probability_column in df.columns:
+                y_prob = df[dataset.probability_column].values
+            
             sensitive_features = df[sensitive_attrs]
             
-            # Calculer vraies métriques de fairness
-            fairness_results = calculate_fairness_metrics(
-                y_true=y_true,
-                y_pred=y_pred,
+            # Utiliser le nouveau ComprehensiveFairnessCalculator via EnhancedFairnessService
+            from services.fairness.service import EnhancedFairnessService
+            service = EnhancedFairnessService()
+            
+            fairness_results = await service.run_full_audit(
+                y_true=y_true.values,
+                y_pred=y_pred.values,
+                y_prob=y_prob,
                 sensitive_features=sensitive_features,
-                sensitive_feature_names=sensitive_attrs
+                feature_names=sensitive_attrs
             )
             
-            # Calculer score global (moyenne des scores de fairness)
-            fairness_scores = fairness_results.get('fairness_scores', {})
-            if fairness_scores:
-                # Convertir scores en pourcentage (0-100)
-                overall_score = np.mean(list(fairness_scores.values())) * 100
-            else:
-                overall_score = 0
+            # Mettre à jour les champs de l'audit avec les résultats complets
+            audit.overall_score = fairness_results.get("overall_score", 0)
+            audit.risk_level = fairness_results.get("risk_assessment", {}).get("risk_level", "Medium")
+            audit.compliant = fairness_results.get("risk_assessment", {}).get("is_fair", True)
             
-            # Déterminer risk level
-            if overall_score >= 80:
-                risk_level = "low"
-            elif overall_score >= 60:
-                risk_level = "medium"
-            else:
-                risk_level = "high"
+            audit.metrics_results = fairness_results.get("fairness_scores") 
+            audit.detailed_metrics = fairness_results
+            audit.group_metrics = fairness_results.get("group_metrics")
+            audit.disaggregated_metrics = fairness_results.get("disaggregated_metrics")
             
-            # Mettre à jour l'audit
-            audit.metrics_results = fairness_results  # Stocker tous les résultats
-            audit.overall_score = overall_score
-            audit.risk_level = risk_level
+            # Générer les recommandations
+            audit.ai_recommendations = await service.generate_ai_recommendations(fairness_results)
+            audit.mitigation_recommendations = await service.get_mitigation_recommendations(fairness_results)
+            
+            # Finaliser l'audit
             audit.status = "completed"
-            audit.bias_detected = overall_score < 80
-            audit.critical_bias_count = sum(1 for score in fairness_scores.values() if score < 0.7)
+            audit.completed_at = func.now()
+            audit.bias_detected = audit.overall_score < 80
+            
+            # Marquer le dataset comme prêt
+            dataset.status = "ready"
             
             await db.commit()
             
@@ -126,18 +133,29 @@ async def create_audit(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    # Vérifier le dataset
-    stmt = select(Dataset).where(Dataset.id == request.dataset_id, Dataset.user_id == current_user.id)
+    # Vérifier le dataset (Propriétaire ou même Organisation)
+    if current_user.organization_id:
+        stmt = select(Dataset).where(
+            Dataset.id == request.dataset_id,
+            Dataset.organization_id == current_user.organization_id
+        )
+    else:
+        stmt = select(Dataset).where(
+            Dataset.id == request.dataset_id,
+            Dataset.user_id == current_user.id
+        )
+    
     result = await db.execute(stmt)
     dataset = result.scalar_one_or_none()
     
     if not dataset:
-        raise HTTPException(status_code=404, detail="Dataset not found")
+        raise HTTPException(status_code=404, detail="Dataset not found or access denied")
         
     # Créer l'audit en base
     new_audit = Audit(
         dataset_id=dataset.id,
         user_id=current_user.id,
+        organization_id=current_user.organization_id,
         audit_name=request.name,
         use_case=request.use_case,
         target_column=request.target_column,
@@ -178,8 +196,12 @@ async def get_dashboard_stats(
     from datetime import datetime, timedelta
     
     try:
-        # Get all audits for the user
-        stmt = select(Audit).where(Audit.user_id == current_user.id)
+        # Get all audits for the user or their organization
+        if current_user.organization_id:
+            stmt = select(Audit).where(Audit.organization_id == current_user.organization_id)
+        else:
+            stmt = select(Audit).where(Audit.user_id == current_user.id)
+            
         result = await db.execute(stmt)
         audits = result.scalars().all()
         
@@ -199,11 +221,11 @@ async def get_dashboard_stats(
         scores = [audit.overall_score for audit in audits if audit.overall_score is not None]
         avg_score = sum(scores) / len(scores) if scores else 0
         
-        # Count critical biases (score < 70)
-        critical_biases = sum(1 for audit in audits if audit.overall_score and audit.overall_score < 70)
+        # Count critical biases (score < 60) - Aligné sur les nouveaux seuils
+        critical_biases = sum(1 for audit in audits if audit.overall_score is not None and audit.overall_score < 60)
         
         # Calculate compliance rate (score >= 80)
-        compliant_audits = sum(1 for audit in audits if audit.overall_score and audit.overall_score >= 80)
+        compliant_audits = sum(1 for audit in audits if audit.overall_score is not None and audit.overall_score >= 80)
         compliance_rate = (compliant_audits / total_audits * 100) if total_audits > 0 else 0
         
         # Count audits this month
@@ -241,7 +263,11 @@ async def get_audit(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    stmt = select(Audit).where(Audit.id == audit_id, Audit.user_id == current_user.id)
+    if current_user.organization_id:
+        stmt = select(Audit).where(Audit.id == audit_id, Audit.organization_id == current_user.organization_id)
+    else:
+        stmt = select(Audit).where(Audit.id == audit_id, Audit.user_id == current_user.id)
+        
     result = await db.execute(stmt)
     audit = result.scalar_one_or_none()
     
@@ -252,10 +278,18 @@ async def get_audit(
         "id": audit.id,
         "name": audit.audit_name,
         "status": audit.status,
-        "score": audit.overall_score,  # Frontend attend 'score'
+        "score": audit.overall_score,
         "overall_score": audit.overall_score,
         "risk_level": audit.risk_level,
         "metrics_results": audit.metrics_results,
+        "detailed_metrics": audit.detailed_metrics,
+        "ai_recommendations": audit.ai_recommendations,
+        "mitigation_recommendations": audit.mitigation_recommendations,
+        "group_metrics": audit.group_metrics,
+        "disaggregated_metrics": audit.disaggregated_metrics,
+        "target_column": audit.target_column,
+        "sensitive_attributes": audit.sensitive_attributes,
+        "prediction_column": audit.prediction_column,
         "created_at": audit.created_at
     }
 
@@ -264,7 +298,11 @@ async def list_audits(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    stmt = select(Audit).where(Audit.user_id == current_user.id).order_by(Audit.created_at.desc())
+    if current_user.organization_id:
+        stmt = select(Audit).where(Audit.organization_id == current_user.organization_id).order_by(Audit.created_at.desc())
+    else:
+        stmt = select(Audit).where(Audit.user_id == current_user.id).order_by(Audit.created_at.desc())
+        
     result = await db.execute(stmt)
     audits = result.scalars().all()
     
@@ -273,13 +311,67 @@ async def list_audits(
             "id": a.id,
             "name": a.audit_name,
             "status": a.status,
-            "score": a.overall_score,  # Frontend attend 'score'
-            "overall_score": a.overall_score,  # Garder aussi pour compatibilité
+            "score": a.overall_score,
+            "overall_score": a.overall_score,
             "use_case": a.use_case,
-            "critical_bias_count": a.critical_bias_count,
+            "risk_level": a.risk_level,
+            "critical_bias_count": a.critical_bias_count or (1 if a.overall_score and a.overall_score < 60 else 0),
             "created_at": a.created_at
         }
         for a in audits
     ]
 
 
+@router.get("/{audit_id}/eda")
+async def get_audit_eda(
+    audit_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Récupère l'analyse exploratoire (EDA) pour un audit spécifique.
+    """
+    # 1. Récupérer l'audit (Propriétaire ou Organisation)
+    if current_user.organization_id:
+        stmt = select(Audit).where(Audit.id == audit_id, Audit.organization_id == current_user.organization_id)
+    else:
+        stmt = select(Audit).where(Audit.id == audit_id, Audit.user_id == current_user.id)
+        
+    result = await db.execute(stmt)
+    audit = result.scalar_one_or_none()
+    
+    if not audit:
+        raise HTTPException(status_code=404, detail="Audit not found")
+        
+    stmt_ds = select(Dataset).where(Dataset.id == audit.dataset_id)
+    result_ds = await db.execute(stmt_ds)
+    dataset = result_ds.scalar_one_or_none()
+    
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+        
+    # 2. Charger les données (CSV ou Excel)
+    dataset_path = UPLOAD_DIR / dataset.filename
+    if not dataset_path.exists():
+        raise HTTPException(status_code=404, detail="Dataset file not found")
+        
+    try:
+        if str(dataset_path).endswith('.csv'):
+            df = pd.read_csv(dataset_path)
+        else:
+            df = pd.read_excel(dataset_path)
+            
+        # 3. Générer le rapport EDA
+        eda_service = EDAService()
+        eda_report = eda_service.generate_eda_report(
+            df, 
+            target_column=audit.target_column,
+            sensitive_attributes=audit.sensitive_attributes
+        )
+        
+        return eda_report
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error generating EDA: {str(e)}")

@@ -36,111 +36,116 @@ class EnhancedFairnessService:
         self.ai_engine = get_recommendation_engine()
         self.mitigation_engine = BiasMitigationEngine()
     
-    async def perform_comprehensive_audit(
+    async def run_full_audit(
         self,
-        audit: Audit,
-        dataset: Dataset,
-        db: Session
+        y_true: np.ndarray,
+        y_pred: np.ndarray,
+        y_prob: Optional[np.ndarray],
+        sensitive_features: pd.DataFrame,
+        feature_names: List[str]
     ) -> Dict[str, Any]:
         """
-        Perform complete fairness audit with all enhancements
-        
-        Args:
-            audit: Audit object
-            dataset: Dataset object
-            db: Database session
-        
-        Returns:
-            Complete audit results
+        Perform complete fairness audit based on raw data
         """
         try:
-            # Update status
-            audit.status = "processing"
-            db.commit()
-            
-            # 1. Load and prepare data
-            df, y_true, y_pred, y_prob, sensitive_attrs = self._load_and_prepare_data(
-                dataset, audit
-            )
-            
-            if df is None:
-                raise ValueError("Failed to load data")
-            
-            # 2. Calculate comprehensive metrics
+            # 1. Calculate comprehensive metrics
             metrics_calculator = ComprehensiveFairnessCalculator(
-                sensitive_features=audit.sensitive_attributes
+                sensitive_features=feature_names
             )
             
             metrics_result = metrics_calculator.calculate_all_metrics(
                 y_true=y_true,
                 y_pred=y_pred,
                 y_prob=y_prob,
-                sensitive_attrs=sensitive_attrs
+                sensitive_attrs=sensitive_features
             )
             
-            # 3. Generate AI recommendations
+            # 2. Generate AI recommendations
             ai_recommendations = await self.ai_engine.generate_bias_recommendations(
                 metrics_results=metrics_result.fairness_scores,
-                sensitive_attributes=audit.sensitive_attributes,
+                sensitive_attributes=feature_names,
                 context={
-                    "domain": audit.domain if hasattr(audit, 'domain') else "General",
-                    "use_case": "Classification",
+                    "domain": "Classification",
+                    "use_case": "General",
                     "regulations": ["AI Act", "RGPD"]
                 }
             )
             
-            # 4. Get mitigation strategy recommendations
+            # 3. Get mitigation strategy recommendations
             mitigation_recommendations = self.mitigation_engine.get_strategy_recommendations(
                 fairness_metrics=metrics_result.fairness_scores,
-                context={"data_size": len(df)}
+                context={"data_size": len(y_true)}
             )
             
+            # 4. Calculate final score and risk
+            overall_score = self._calculate_overall_score(metrics_result.fairness_scores)
+            risk_info = self._assess_risk_v2(overall_score)
+            
             # 5. Compile complete results
-            complete_results = {
+            return {
                 "overall_metrics": metrics_result.overall_metrics,
                 "fairness_scores": metrics_result.fairness_scores,
                 "disaggregated_metrics": metrics_result.disaggregated_metrics,
                 "group_metrics": metrics_result.group_metrics,
-                "risk_assessment": metrics_result.risk_assessment,
+                "overall_score": overall_score,
+                "risk_assessment": risk_info,
                 "basic_recommendations": metrics_result.recommendations,
                 "ai_recommendations": ai_recommendations,
                 "mitigation_strategies": mitigation_recommendations,
                 "audit_metadata": {
-                    "total_samples": len(df),
-                    "sensitive_attributes": audit.sensitive_attributes,
-                    "target_column": audit.target_column,
+                    "total_samples": len(y_true),
+                    "sensitive_attributes": feature_names,
                     "timestamp": pd.Timestamp.now().isoformat()
                 }
             }
             
-            # 6. Update audit object
-            audit.metrics_results = metrics_result.fairness_scores
-            audit.overall_score = self._calculate_overall_score(metrics_result)
-            audit.risk_level = metrics_result.risk_assessment["risk_level"]
-            audit.status = "completed"
-            
-            # Store detailed results in new fields
-            if hasattr(audit, 'detailed_metrics'):
-                audit.detailed_metrics = complete_results
-            if hasattr(audit, 'ai_recommendations'):
-                audit.ai_recommendations = ai_recommendations
-            if hasattr(audit, 'mitigation_recommendations'):
-                audit.mitigation_recommendations = mitigation_recommendations
-            
-            db.commit()
-            
-            return complete_results
-            
         except Exception as e:
-            print(f"Error in comprehensive audit: {e}")
+            print(f"Error in run_full_audit: {e}")
             import traceback
             traceback.print_exc()
-            
-            audit.status = "failed"
-            audit.error_message = str(e)
-            db.commit()
-            
             raise e
+
+    def _calculate_overall_score(self, fairness_scores: Dict[str, float]) -> float:
+        """
+        Calculate overall fairness score as average of all metrics (0-100)
+        """
+        if not fairness_scores:
+            return 0.0
+            
+        # Filtrer les erreurs et ne garder que les scores numériques
+        valid_scores = [v for k, v in fairness_scores.items() if isinstance(v, (int, float)) and "_error" not in k]
+        
+        if not valid_scores:
+            return 0.0
+            
+        return float(np.mean(valid_scores))
+
+    def _assess_risk_v2(self, score: float) -> Dict[str, Any]:
+        """
+        Assess risk based on finalized thresholds:
+        >= 80% : Low (Conforme)
+        60-79% : Medium (Attention)
+        < 60% : High (Critique)
+        """
+        if score >= 80:
+            level = "Low"
+            is_fair = True
+        elif score >= 60:
+            level = "Medium"
+            is_fair = False
+        else:
+            level = "High"
+            is_fair = False
+            
+        return {
+            "risk_level": level,
+            "overall_score": score,
+            "is_fair": is_fair,
+            "thresholds": {
+                "low": 80,
+                "medium": 60
+            }
+        }
     
     def _load_and_prepare_data(
         self,
@@ -228,37 +233,6 @@ class EnhancedFairnessService:
             print(f"Error training baseline model: {e}")
             # Return dummy predictions
             return np.zeros(len(df)), None
-    
-    def _calculate_overall_score(self, metrics_result: FairnessMetricsResult) -> float:
-        """
-        Calculate overall fairness score (0-100)
-        
-        Higher is better. Combines multiple fairness metrics.
-        """
-        risk_score = metrics_result.risk_assessment.get("risk_score", 2)
-        
-        # Convert risk score (1-4) to fairness score (100-0)
-        # Risk 1 (Low) = Score 90-100
-        # Risk 2 (Medium) = Score 70-89
-        # Risk 3 (High) = Score 40-69
-        # Risk 4 (Critical) = Score 0-39
-        
-        score_mapping = {
-            1: 95,   # Low risk
-            2: 80,   # Medium risk
-            3: 55,   # High risk
-            4: 25    # Critical risk
-        }
-        
-        base_score = score_mapping.get(risk_score, 50)
-        
-        # Adjust based on number of violations
-        violations = metrics_result.risk_assessment.get("total_violations", 0)
-        penalty = min(violations * 5, 30)  # Max 30 point penalty
-        
-        final_score = max(0, base_score - penalty)
-        
-        return float(final_score)
     
     async def apply_mitigation_strategy(
         self,
@@ -460,7 +434,7 @@ class EnhancedFairnessService:
 # Legacy function for backward compatibility
 def calculate_fairness(audit: Audit, dataset: Dataset, db: Session):
     """
-    Legacy function - now uses enhanced service
+    Legacy function - now uses internal load + run_full_audit
     """
     service = EnhancedFairnessService()
     
@@ -468,8 +442,17 @@ def calculate_fairness(audit: Audit, dataset: Dataset, db: Session):
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
+        # On doit d'abord charger les données car run_full_audit attend des arrays
+        df, y_true, y_pred, y_prob, sensitive_attrs = service._load_and_prepare_data(dataset, audit)
+        
         result = loop.run_until_complete(
-            service.perform_comprehensive_audit(audit, dataset, db)
+            service.run_full_audit(
+                y_true=y_true,
+                y_pred=y_pred,
+                y_prob=y_prob,
+                sensitive_features=sensitive_attrs,
+                feature_names=audit.sensitive_attributes
+            )
         )
         return result
     finally:

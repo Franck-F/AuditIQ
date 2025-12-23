@@ -1,12 +1,8 @@
-"""
-Routeur pour l'entraînement automatique de modèles ML et l'upload de prédictions
-"""
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel
 from typing import Optional, List
-from pathlib import Path
 import pandas as pd
 import io
 
@@ -15,16 +11,17 @@ from models.user import User
 from models.dataset import Dataset
 from auth_middleware import get_current_user
 from services.ml_training import train_model_on_dataset
+from services.dataset_service import dataset_service
 
 router = APIRouter(prefix="/api/ml", tags=["ml"])
-UPLOAD_DIR = Path("uploads")
+
 
 # Pydantic Models
 class AutoTrainRequest(BaseModel):
     target_column: str
-    feature_columns: Optional[List[str]] = None  # Si None, utilise toutes les colonnes sauf target
-    algorithm: Optional[str] = None  # 'logistic_regression' ou 'xgboost'. Si None, choix auto selon use_case
-    use_case: Optional[str] = None  # Pour choix automatique de l'algorithme
+    feature_columns: Optional[List[str]] = None
+    algorithm: Optional[str] = None
+    use_case: Optional[str] = None
 
 async def get_db():
     async with AsyncSessionLocal() as session:
@@ -43,22 +40,10 @@ async def train_model_background_task(dataset_id: int, config: dict):
                 print(f"Dataset {dataset_id} not found")
                 return
             
-            # Charger le fichier
-            file_path = UPLOAD_DIR / dataset.filename
-            if not file_path.exists():
-                print(f"File {file_path} not found")
-                return
-            
-            # Lire le fichier
-            if dataset.mime_type == 'text/csv':
-                df = pd.read_csv(file_path, encoding=dataset.encoding)
-            else:
-                df = pd.read_excel(file_path)
+            # Charger les données via le service (supporte Supabase/Local)
+            df = await dataset_service.get_dataset_df(dataset)
             
             print(f"Training model for dataset {dataset_id}...")
-            print(f"  Target: {config['target_column']}")
-            print(f"  Algorithm: {config.get('algorithm', 'auto')}")
-            print(f"  Use case: {config.get('use_case', 'unknown')}")
             
             # Entraîner le modèle
             df_with_predictions, metrics = train_model_on_dataset(
@@ -69,25 +54,19 @@ async def train_model_background_task(dataset_id: int, config: dict):
                 use_case=config.get('use_case')
             )
             
-            # Sauvegarder le fichier avec prédictions
-            if dataset.mime_type == 'text/csv':
-                df_with_predictions.to_csv(file_path, index=False, encoding=dataset.encoding)
-            else:
-                df_with_predictions.to_excel(file_path, index=False)
+            # Sauvegarder les données mises à jour via le service
+            await dataset_service.save_dataset_df(dataset, df_with_predictions)
             
             # Mettre à jour les métadonnées du dataset
             dataset.has_predictions = True
             dataset.prediction_column = 'ml_prediction'
-            dataset.probability_column = 'ml_probability'
+            dataset.probability_column = 'ml_probability' if 'ml_probability' in df_with_predictions.columns else None
             dataset.model_type = 'auto_trained'
             dataset.model_algorithm = metrics['algorithm']
             dataset.model_metrics = metrics
             
             await db.commit()
-            
             print(f"✓ Model trained successfully for dataset {dataset_id}")
-            print(f"  Test Accuracy: {metrics['test_accuracy']:.3f}")
-            print(f"  Test F1: {metrics['test_f1']:.3f}")
             
         except Exception as e:
             print(f"Error training model for dataset {dataset_id}: {e}")
@@ -104,10 +83,6 @@ async def auto_train_model(
 ):
     """
     Lance l'entraînement automatique d'un modèle ML
-    
-    Le modèle sera choisi automatiquement selon le use_case :
-    - scoring, recrutement → LogisticRegression
-    - support_client, prediction → XGBoost
     """
     # Vérifier que le dataset existe et appartient à l'utilisateur
     stmt = select(Dataset).where(Dataset.id == dataset_id, Dataset.user_id == current_user.id)
@@ -116,11 +91,6 @@ async def auto_train_model(
     
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
-    
-    # Vérifier que le fichier existe
-    file_path = UPLOAD_DIR / dataset.filename
-    if not file_path.exists():
-        raise HTTPException(status_code=404, detail="Dataset file not found")
     
     # Lancer l'entraînement en arrière-plan
     config = {
@@ -135,8 +105,7 @@ async def auto_train_model(
     return {
         "message": "Model training started",
         "status": "training",
-        "dataset_id": dataset_id,
-        "algorithm": request.algorithm or f"auto (based on use_case: {request.use_case})"
+        "dataset_id": dataset_id
     }
 
 @router.get("/datasets/{dataset_id}/training-status")
@@ -169,6 +138,8 @@ async def get_training_status(
         "probability_column": dataset.probability_column
     }
 
+import chardet
+
 @router.post("/datasets/{dataset_id}/upload-predictions")
 async def upload_predictions(
     dataset_id: int,
@@ -178,10 +149,6 @@ async def upload_predictions(
 ):
     """
     Upload un fichier CSV contenant les prédictions pré-calculées
-    
-    Le fichier doit contenir les colonnes :
-    - prediction (obligatoire)
-    - probability (optionnel)
     """
     # Vérifier le dataset
     stmt = select(Dataset).where(Dataset.id == dataset_id, Dataset.user_id == current_user.id)
@@ -191,54 +158,73 @@ async def upload_predictions(
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
     
-    # Lire le fichier de prédictions
+    # Lire le contenu pour détecter l'encodage
     content = await predictions_file.read()
-    try:
-        pred_df = pd.read_csv(io.BytesIO(content))
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Invalid CSV file: {str(e)}")
+    detection = chardet.detect(content)
+    encoding = detection['encoding'] or 'utf-8'
     
-    # Vérifier colonnes requises
+    try:
+        pred_df = pd.read_csv(io.BytesIO(content), encoding=encoding)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid CSV file or encoding ({encoding}): {str(e)}")
+    
+    # 1. Validation des colonnes
     if 'prediction' not in pred_df.columns:
         raise HTTPException(status_code=400, detail="Predictions file must contain 'prediction' column")
     
-    # Charger le dataset original
-    file_path = UPLOAD_DIR / dataset.filename
-    if dataset.mime_type == 'text/csv':
-        original_df = pd.read_csv(file_path, encoding=dataset.encoding)
-    else:
-        original_df = pd.read_excel(file_path)
-    
-    # Vérifier même nombre de lignes
+    # 2. Validation du nombre de lignes
+    original_df = await dataset_service.get_dataset_df(dataset)
     if len(pred_df) != len(original_df):
         raise HTTPException(
             status_code=400,
-            detail=f"Predictions file must have same number of rows as dataset ({len(original_df)} rows)"
+            detail=f"Predictions file must have same number of rows as dataset ({len(original_df)} rows, got {len(pred_df)})"
         )
     
-    # Ajouter colonnes au dataset original
+    # 3. Validation de la qualité des données (pas de NaN dans prediction)
+    if pred_df['prediction'].isnull().any():
+        nan_count = pred_df['prediction'].isnull().sum()
+        raise HTTPException(status_code=400, detail=f"Prediction column contains {nan_count} missing values (NaN).")
+
+    # 4. Validation des probabilités
+    has_prob = 'probability' in pred_df.columns
+    if has_prob:
+        # Forcer en float et vérifier les bornes
+        try:
+            pred_df['probability'] = pd.to_numeric(pred_df['probability'])
+            if not pred_df['probability'].between(0, 1).all():
+                raise HTTPException(status_code=400, detail="Probability values must be between 0 and 1.")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Probability column must contain numeric values.")
+    
+    # 5. Intégration dans le dataset original
     original_df['ml_prediction'] = pred_df['prediction']
-    if 'probability' in pred_df.columns:
+    if has_prob:
         original_df['ml_probability'] = pred_df['probability']
     
-    # Sauvegarder
-    if dataset.mime_type == 'text/csv':
-        original_df.to_csv(file_path, index=False, encoding=dataset.encoding)
-    else:
-        original_df.to_excel(file_path, index=False)
+    # Sauvegarder via le service
+    await dataset_service.save_dataset_df(dataset, original_df)
     
     # Mettre à jour métadonnées
     dataset.has_predictions = True
     dataset.prediction_column = 'ml_prediction'
-    dataset.probability_column = 'ml_probability' if 'probability' in pred_df.columns else None
+    dataset.probability_column = 'ml_probability' if has_prob else None
     dataset.model_type = 'uploaded'
     dataset.model_algorithm = 'user_provided'
-    dataset.model_metrics = None
+    dataset.model_metrics = {
+        'source': 'upload',
+        'encoding': encoding,
+        'has_probability': has_prob,
+        'unique_predictions': int(pred_df['prediction'].nunique())
+    }
     
     await db.commit()
     
     return {
         "message": "Predictions uploaded successfully",
-        "rows": len(pred_df),
-        "has_probability": 'probability' in pred_df.columns
+        "details": {
+            "rows": len(pred_df),
+            "encoding_detected": encoding,
+            "has_probability": has_prob,
+            "prediction_column": "ml_prediction"
+        }
     }

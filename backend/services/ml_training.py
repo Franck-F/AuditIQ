@@ -9,6 +9,7 @@ Supporte :
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.impute import SimpleImputer
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 import pandas as pd
 import numpy as np
@@ -66,6 +67,9 @@ class AutoMLTrainer:
         self.model = None
         self.label_encoders = {}
         self.scaler = StandardScaler()
+        # Imputers pour gérer les valeurs manquantes
+        self.num_imputer = SimpleImputer(strategy='median')
+        self.cat_imputer = SimpleImputer(strategy='most_frequent')
         self.feature_names = []
         
     def detect_problem_type(self, y: pd.Series) -> str:
@@ -81,21 +85,42 @@ class AutoMLTrainer:
     def preprocess_features(self, X: pd.DataFrame, fit: bool = True) -> np.ndarray:
         """
         Prétraite les features :
+        - Imputation des valeurs manquantes
         - Encode les variables catégorielles
         - Normalise les variables numériques
         """
         X_processed = X.copy()
         
-        for col in X_processed.columns:
-            if X_processed[col].dtype == 'object':
-                # Encoder les catégorielles
-                if fit:
-                    self.label_encoders[col] = LabelEncoder()
-                    X_processed[col] = self.label_encoders[col].fit_transform(X_processed[col].astype(str))
-                else:
-                    X_processed[col] = self.label_encoders[col].transform(X_processed[col].astype(str))
+        # Séparer types pour imputation
+        num_cols = X_processed.select_dtypes(include=['number']).columns.tolist()
+        cat_cols = X_processed.select_dtypes(include=['object', 'category']).columns.tolist()
         
-        # Normaliser
+        # 1. Imputation
+        if fit:
+            if num_cols:
+                X_processed[num_cols] = self.num_imputer.fit_transform(X_processed[num_cols])
+            if cat_cols:
+                X_processed[cat_cols] = self.cat_imputer.fit_transform(X_processed[cat_cols].astype(str))
+        else:
+            if num_cols:
+                X_processed[num_cols] = self.num_imputer.transform(X_processed[num_cols])
+            if cat_cols:
+                X_processed[cat_cols] = self.cat_imputer.transform(X_processed[cat_cols].astype(str))
+        
+        # 2. Encodage catégoriel
+        for col in cat_cols:
+            if fit:
+                self.label_encoders[col] = LabelEncoder()
+                X_processed[col] = self.label_encoders[col].fit_transform(X_processed[col].astype(str))
+            else:
+                # Gérer nouvelles catégories non vues en mettant le mode ou 0
+                series = X_processed[col].astype(str)
+                # On utilise un petit trick : transformer seulement les valeurs connues
+                known_classes = set(self.label_encoders[col].classes_)
+                series_mapped = series.apply(lambda x: x if x in known_classes else self.label_encoders[col].classes_[0])
+                X_processed[col] = self.label_encoders[col].transform(series_mapped)
+        
+        # 3. Normaliser
         if fit:
             X_normalized = self.scaler.fit_transform(X_processed)
         else:
@@ -110,6 +135,10 @@ class AutoMLTrainer:
         Returns:
             Dict avec métriques de performance
         """
+        # Vérification minimale
+        if len(X) < 10:
+             raise ValueError("Dataset too small for training (minimum 10 samples required).")
+             
         problem_type = self.detect_problem_type(y)
         
         if problem_type == 'regression':
@@ -122,9 +151,9 @@ class AutoMLTrainer:
         X_processed = self.preprocess_features(X, fit=True)
         
         # Encoder target si nécessaire
-        if y.dtype == 'object':
+        if y.dtype == 'object' or y.dtype.name == 'category':
             self.target_encoder = LabelEncoder()
-            y_encoded = self.target_encoder.fit_transform(y)
+            y_encoded = self.target_encoder.fit_transform(y.astype(str))
         else:
             y_encoded = y.values
         
@@ -138,7 +167,7 @@ class AutoMLTrainer:
             self.model = LogisticRegression(
                 max_iter=1000,
                 random_state=42,
-                class_weight='balanced'  # Gère les classes déséquilibrées
+                class_weight='balanced'
             )
         elif self.algorithm == 'xgboost':
             self.model = XGBClassifier(
@@ -151,7 +180,6 @@ class AutoMLTrainer:
             )
         
         # Entraîner
-        print(f"Training {self.algorithm} on {len(X_train)} samples...")
         self.model.fit(X_train, y_train)
         
         # Évaluer
@@ -166,49 +194,37 @@ class AutoMLTrainer:
             'test_accuracy': float(accuracy_score(y_test, y_pred_test)),
             'train_f1': float(f1_score(y_train, y_pred_train, average=average)),
             'test_f1': float(f1_score(y_test, y_pred_test, average=average)),
-            'precision': float(precision_score(y_test, y_pred_test, average=average)),
-            'recall': float(recall_score(y_test, y_pred_test, average=average)),
+            'train_precision': float(precision_score(y_train, y_pred_train, average=average)),
+            'test_precision': float(precision_score(y_test, y_pred_test, average=average)),
+            'train_recall': float(recall_score(y_train, y_pred_train, average=average)),
+            'test_recall': float(recall_score(y_test, y_pred_test, average=average)),
             'algorithm': self.algorithm,
             'problem_type': problem_type,
             'n_features': len(self.feature_names),
             'n_samples': len(X)
         }
         
-        print(f"✓ Model trained successfully!")
-        print(f"  Test Accuracy: {metrics['test_accuracy']:.3f}")
-        print(f"  Test F1: {metrics['test_f1']:.3f}")
-        
         return metrics
     
     def predict(self, X: pd.DataFrame) -> Tuple[np.ndarray, Optional[np.ndarray]]:
         """
         Génère prédictions et probabilités
-        
-        Returns:
-            (predictions, probabilities)
         """
         if self.model is None:
-            raise ValueError("Model not trained yet. Call train() first.")
+            raise ValueError("Model not trained yet.")
         
-        # Prétraiter
         X_processed = self.preprocess_features(X, fit=False)
-        
-        # Prédire
         predictions = self.model.predict(X_processed)
         
-        # Décoder si nécessaire
         if hasattr(self, 'target_encoder'):
             predictions = self.target_encoder.inverse_transform(predictions)
         
-        # Probabilités
         probabilities = None
         if hasattr(self.model, 'predict_proba'):
             proba = self.model.predict_proba(X_processed)
-            # Pour binaire, prendre proba de la classe positive
             if proba.shape[1] == 2:
                 probabilities = proba[:, 1]
             else:
-                # Pour multi-classe, prendre max proba
                 probabilities = np.max(proba, axis=1)
         
         return predictions, probabilities

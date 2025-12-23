@@ -48,6 +48,7 @@ class ChatMessage(BaseModel):
 class ChatRequest(BaseModel):
     message: str
     conversation_history: List[ChatMessage] = []
+    audit_id: Optional[int] = None
 
 
 class Source(BaseModel):
@@ -62,105 +63,99 @@ class ChatResponse(BaseModel):
 
 
 
-async def get_user_context(user_id: int, db: AsyncSession) -> str:
+async def get_audit_context(audit_id: int, user_id: int, db: AsyncSession) -> str:
+    """Retrieve specific audit result for granular context"""
+    from sqlalchemy import select
+    result = await db.execute(
+        select(Audit).filter(Audit.id == audit_id, Audit.user_id == user_id)
+    )
+    audit = result.scalar_one_or_none()
+    if not audit:
+        return ""
+    
+    context = f"=== FOCUS SUR L'AUDIT #{audit.id} ===\n"
+    context += f"Nom: {audit.name or 'Audit'}\n"
+    context += f"Cible: {audit.target_column}\n"
+    context += f"Attributs Sensibles: {', '.join(audit.sensitive_attributes)}\n"
+    context += f"Status: {audit.status}\n"
+    
+    if audit.fairness_metrics:
+        context += "Scores de Fairness (0-1):\n"
+        for k, v in audit.fairness_metrics.items():
+            if not k.endswith('_error'):
+                context += f"- {k}: {v}\n"
+    
+    if audit.overall_score:
+        context += f"Score Global: {audit.overall_score}/100\n"
+    
+    if audit.recommendations:
+        context += f"Recommandations suggérées: {json.dumps(audit.recommendations[:3])}\n"
+        
+    return context + "\n"
+
+
+async def get_user_context(user_id: int, db: AsyncSession, current_audit_id: Optional[int] = None) -> str:
     """Retrieve user's audit data for context"""
     from sqlalchemy import select
     
-    # Get recent audits
-    result = await db.execute(
-        select(Audit).filter(Audit.user_id == user_id).order_by(Audit.created_at.desc()).limit(5)
-    )
+    context = ""
+    
+    # Prioritize specific audit context if provided
+    if current_audit_id:
+        context += await get_audit_context(current_audit_id, user_id, db)
+
+    # Get recent audits (excluding current one if already added)
+    query = select(Audit).filter(Audit.user_id == user_id)
+    if current_audit_id:
+        query = query.filter(Audit.id != current_audit_id)
+    
+    result = await db.execute(query.order_by(Audit.created_at.desc()).limit(3))
     audits = result.scalars().all()
     
     # Get datasets
     result = await db.execute(
-        select(Dataset).filter(Dataset.user_id == user_id).order_by(Dataset.created_at.desc()).limit(5)
+        select(Dataset).filter(Dataset.user_id == user_id).order_by(Dataset.created_at.desc()).limit(3)
     )
     datasets = result.scalars().all()
     
-    context = "=== CONTEXTE UTILISATEUR ===\n\n"
+    context += "=== CONTEXTE UTILISATEUR RÉCENT ===\n\n"
     
     if audits:
-        context += "AUDITS RÉCENTS:\n"
+        context += "AUTRES AUDITS:\n"
         for audit in audits:
             context += f"- Audit #{audit.id}: {audit.name or 'Sans nom'}\n"
-            if audit.fairness_metrics:
-                context += f"  Métriques: {audit.fairness_metrics}\n"
             if audit.status:
                 context += f"  Statut: {audit.status}\n"
             context += "\n"
     
     if datasets:
-        context += "DATASETS:\n"
+        context += "DATASETS PRINCIPAUX:\n"
         for dataset in datasets:
-            context += f"- Dataset: {dataset.filename}\n"
-            if dataset.row_count:
-                context += f"  Lignes: {dataset.row_count}\n"
-            if dataset.column_count:
-                context += f"  Colonnes (Total): {dataset.column_count}\n"
-            
-            # Read file content preview
-            try:
-                file_path = UPLOAD_DIR / dataset.filename
-                if file_path.exists():
-                    if dataset.filename.endswith('.csv'):
-                        # Try different encodings if utf-8 fails
-                        try:
-                            df = pd.read_csv(file_path, nrows=5)
-                        except UnicodeDecodeError:
-                            df = pd.read_csv(file_path, nrows=5, encoding='latin-1')
-                    elif dataset.filename.endswith(('.xls', '.xlsx')):
-                        df = pd.read_excel(file_path, nrows=5)
-                    else:
-                        df = None
-                    
-                    if df is not None:
-                        context += f"  Noms des colonnes: {', '.join(df.columns)}\n"
-                        context += f"  Aperçu des données (5 premières lignes):\n"
-                        context += df.to_markdown(index=False) + "\n"
-            except Exception as e:
-                print(f"Error reading dataset {dataset.id}: {e}")
-                
-            context += "\n"
+            context += f"- Dataset: {dataset.filename} ({dataset.row_count} lignes)\n"
     
     return context
 
 
 def create_system_prompt() -> str:
-    """Create system prompt for Gemini"""
-    return """Tu es l'Assistant Audit-IQ, un expert en équité algorithmique et conformité IA.
+    """Create system prompt for Gemini with strict domain guardrails"""
+    return """Tu es l'Assistant Audit-IQ, un expert MANDATÉ en équité algorithmique (Fairness), éthique de l'IA et conformité (AI Act, GDPR).
 
-RÔLE:
-- Aider les utilisateurs à comprendre les métriques de fairness
-- Interpréter les résultats d'audit
-- Fournir des recommandations de mitigation
-- Expliquer la conformité AI Act et RGPD
+CHAMP D'EXPERTISE (STRICT) :
+1. Fairness Metrics : Interpretation du Demographic Parity, Equal Opportunity, Predictive Parity, etc.
+2. Résultats d'Audit : Explication des scores de l'utilisateur, des biais détectés et du niveau de risque.
+3. Mitigation : Recommandations pour corriger les biais (Pre/In/Post-processing).
+4. Compliance : Règlementations européennes sur l'IA et protection des données.
+5. Audit Data : Analyse des datasets fournis par l'utilisateur du point de vue de l'équité.
 
-TON ET PERSONNALITÉ:
-- Professionnel, empathique et encourageant.
-- Tu es un collègue expert, pas un robot froid.
-- Évite les répétitions : ne dis pas "Bonjour" ou ne te présente pas à chaque message si la conversation est déjà en cours.
-- Sois direct et pertinent.
+DIRECTIVE DE SÉCURITÉ (CRITIQUE) :
+- Tu ne dois JAMAIS répondre à des questions qui sortent du champ d'expertise ci-dessus.
+- Si l'utilisateur pose une question hors-sujet (ex: cuisine, conseils financiers, programmation sans rapport avec la fairness, culture générale, etc.), tu dois répondre POLIMENT mais FERMEMENT : 
+  "Je suis désolé, mais en tant qu'assistant spécialisé Audit-IQ, mon expertise est limitée à l'équité algorithmique et à la conformité de l'IA. Je ne peux pas répondre à votre question sur [sujet]."
+- Redirige ensuite l'utilisateur vers un sujet lié à l'audit ou l'équité.
 
-MÉTRIQUES DE FAIRNESS:
-- Demographic Parity: Égalité des taux de prédiction positive entre groupes
-- Equal Opportunity: Égalité des taux de vrais positifs
-- Equalized Odds: Égalité des taux de vrais positifs ET faux positifs
-- Calibration: Précision des probabilités prédites par groupe
+TON : Professionnel, pédagogique, expert.
 
-STYLE:
-- Réponses claires et concises en français
-- Utilise des exemples concrets
-- Cite des sources quand possible
-- Fournis des liens vers documentation officielle
-- Utilise le format Markdown pour structurer tes réponses (gras, listes, tableaux).
-
-SOURCES:
-- Pour l'AI Act: https://artificialintelligenceact.eu/
-- Pour RGPD: https://www.cnil.fr/
-- Pour fairness: https://fairlearn.org/
-
-Réponds toujours de manière professionnelle et pédagogique."""
+FORMAT : Markdown (gras, tableaux, listes)."""
 
 
 async def get_db_session():
@@ -184,8 +179,8 @@ async def chat(
     - Streams response chunks in NDJSON format
     """
     try:
-        # Get user context
-        user_context = await get_user_context(current_user.id, db)
+        # Get user context (with optional audit awareness)
+        user_context = await get_user_context(current_user.id, db, chat_request.audit_id)
         
         # Build conversation history
         history = []

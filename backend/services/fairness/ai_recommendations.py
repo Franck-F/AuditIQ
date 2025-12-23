@@ -206,54 +206,52 @@ Format your response as structured JSON with the following schema:
         severity = "Low"
         problematic_metrics = []
         
-        for metric_name, metric_data in metrics.items():
-            if isinstance(metric_data, dict):
-                for attr, values in metric_data.items():
-                    if isinstance(values, dict):
-                        # Check demographic parity
-                        if 'demographic_parity' in values:
-                            if abs(values['demographic_parity']) > 0.2:
-                                severity = "High"
-                                problematic_metrics.append(f"{metric_name}_{attr}_demographic_parity")
-                        
-                        # Check equal opportunity
-                        if 'equal_opportunity' in values:
-                            if abs(values['equal_opportunity']) > 0.15:
-                                if severity != "High":
-                                    severity = "Medium"
-                                problematic_metrics.append(f"{metric_name}_{attr}_equal_opportunity")
+        overall_score = metrics.get('overall_score', 100)
+        if overall_score < 60:
+            severity = "Critical"
+        elif overall_score < 80:
+            severity = "High"
         
         return {
             "severity": severity,
-            "overall_assessment": f"Automated analysis detected {len(problematic_metrics)} potential fairness issues.",
+            "overall_assessment": f"L'analyse automatique a detecte des opportunites d'amelioration de l'equite (Score global: {overall_score}%).",
             "problematic_metrics": problematic_metrics,
             "mitigation_strategies": [
                 {
-                    "name": "Reweighting",
-                    "type": "preprocessing",
-                    "description": "Adjust sample weights to balance representation across groups",
-                    "complexity": "Low",
-                    "timeline": "1-2 days"
+                    "name": "Reweighting (Pre-processing)",
+                    "technique": "preprocessing",
+                    "description": "Ajuste les poids des echantillons pour equilibrer la representation des groupes sans modifier les donnees d'entree.",
+                    "impact": "Haute (Amelioration estimee: +15-20%)",
+                    "effort": "Faible",
+                    "priority": "Critique" if overall_score < 60 else "Haute",
+                    "steps": ["Calculer les poids inverses de frequence", "Entrainer avec sample_weight"]
                 },
                 {
-                    "name": "Threshold Optimization",
-                    "type": "postprocessing",
-                    "description": "Optimize decision thresholds per group to achieve fairness",
-                    "complexity": "Medium",
-                    "timeline": "3-5 days"
+                    "name": "Threshold Optimization (Post-processing)",
+                    "technique": "postprocessing",
+                    "description": "Optimise les seuils de decision specifiquement pour chaque groupe protege.",
+                    "impact": "Moyenne (Amelioration estimee: +10-15%)",
+                    "effort": "Faible",
+                    "priority": "Haute",
+                    "steps": ["Calibrer les probabilites", "Ajuster les seuils par groupe"]
+                },
+                {
+                    "name": "Exponentiated Gradient (In-processing)",
+                    "technique": "inprocessing",
+                    "description": "Integre des contraintes d'equite directement dans l'algorithme d'apprentissage.",
+                    "impact": "Tres Haute (Amelioration estimee: +20-30%)",
+                    "effort": "Moyenne",
+                    "priority": "Moyenne",
+                    "steps": ["Choisir une contrainte (Parity/Odds)", "Lancer l'optimisation Fairlearn"]
                 }
             ],
             "immediate_actions": [
                 {
-                    "action": "Review data collection process",
-                    "steps": [
-                        "Check for sampling bias",
-                        "Verify data quality across groups",
-                        "Identify underrepresented groups"
-                    ]
+                    "action": "Reviser le processus de collecte",
+                    "steps": ["Verifier le biais d'echantillonnage", "Identifier les groupes sous-representes"]
                 }
             ],
-            "note": "AI recommendations unavailable. Using rule-based fallback."
+            "note": "Recommandations generees par le moteur de secours (AI non disponible)."
         }
     
     async def explain_metric(self, metric_name: str, value: float, context: str = "") -> str:

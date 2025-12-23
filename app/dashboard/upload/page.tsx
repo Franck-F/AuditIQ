@@ -98,6 +98,36 @@ export default function UploadPage() {
   const [trainingAlgorithm, setTrainingAlgorithm] = useState<string>('auto')
 
 
+  // Polling pour le statut de l'entraînement
+  useEffect(() => {
+    let interval: NodeJS.Timeout
+    if (trainingStatus === 'training' && preview?.dataset_id) {
+      interval = setInterval(async () => {
+        try {
+          const response = await fetch(`${API_URL}/ml/datasets/${preview.dataset_id}/training-status`, {
+            credentials: 'include'
+          })
+          if (response.ok) {
+            const data = await response.json()
+            if (data.status === 'completed') {
+              setTrainingStatus('completed')
+              clearInterval(interval)
+              toast({
+                title: "Entraînement terminé",
+                description: `Modèle ${data.model_algorithm} prêt avec une précision de ${(data.model_metrics.test_accuracy * 100).toFixed(1)}%`
+              })
+              // Passer automatiquement à l'étape 5 après un court délai
+              setTimeout(() => setStep(5), 2000)
+            }
+          }
+        } catch (error) {
+          console.error('Erreur polling:', error)
+        }
+      }, 2000)
+    }
+    return () => clearInterval(interval)
+  }, [trainingStatus, preview?.dataset_id])
+
   // Lancer automatiquement l'audit en atteignant l'étape 5
   useEffect(() => {
     if (step === 5 && preview?.dataset_id) {
@@ -751,8 +781,11 @@ export default function UploadPage() {
                           })
                         })
                         if (response.ok) {
-                          setTrainingStatus('completed')
-                          setTimeout(() => setStep(5), 1500)
+                          setTrainingStatus('training')
+                          toast({
+                            title: "Entraînement lancé",
+                            description: "Le modèle est en cours d'entraînement en arrière-plan..."
+                          })
                         } else {
                           setTrainingStatus('error')
                         }

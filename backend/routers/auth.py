@@ -75,6 +75,9 @@ class UserCreate(BaseModel):
     
     # F1.1.5: Choix du plan
     plan: Optional[str] = 'freemium'
+    
+    # Point 12: Invitation équipe
+    invitation_token: Optional[str] = None
 
 
 # Utility functions
@@ -539,6 +542,7 @@ async def register(
     db: AsyncSession = Depends(get_db),
 ):
     """Register a new user and persist to DB"""
+    from models.organization import TeamInvitation
     # Check existing user
     q = await db.execute(select(User).where(User.email == user.email))
     existing = q.scalars().first()
@@ -562,8 +566,23 @@ async def register(
         plan=user.plan,
         onboarding_completed=0,
         is_verified=False,
-        verification_token=verification_token
+        verification_token=verification_token,
+        role='admin' if not user.invitation_token else 'member'
     )
+    
+    # Handle Invitation
+    if user.invitation_token:
+        stmt = select(TeamInvitation).where(
+            TeamInvitation.token == user.invitation_token,
+            TeamInvitation.status == 'pending'
+        )
+        invitation = (await db.execute(stmt)).scalar_one_or_none()
+        
+        if invitation:
+            db_user.organization_id = invitation.organization_id
+            db_user.role = invitation.role
+            invitation.status = 'accepted'
+    
     db.add(db_user)
     await db.commit()
     await db.refresh(db_user)

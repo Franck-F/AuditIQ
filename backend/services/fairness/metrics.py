@@ -114,7 +114,7 @@ class ComprehensiveFairnessCalculator:
         
         # 4. Fairness-specific scores
         fairness_scores = self._calculate_fairness_scores(
-            y_true, y_pred, sensitive_attrs
+            y_true, y_pred, y_prob, sensitive_attrs
         )
         
         # 5. Risk assessment
@@ -184,6 +184,7 @@ class ComprehensiveFairnessCalculator:
             'false_positive_rate': false_positive_rate,
             'false_negative_rate': false_negative_rate,
             'true_positive_rate': true_positive_rate,
+            'true_negative_rate': true_negative_rate,
         }
         
         results = {}
@@ -268,50 +269,87 @@ class ComprehensiveFairnessCalculator:
         self,
         y_true: np.ndarray,
         y_pred: np.ndarray,
+        y_prob: Optional[np.ndarray],
         sensitive_attrs: pd.DataFrame
     ) -> Dict[str, float]:
-        """Calculate fairness-specific scores"""
+        """Calculate fairness-specific scores for all attributes"""
         
         fairness_scores = {}
         
+        def diff_to_score(diff):
+            return max(0, (1 - abs(diff)) * 100)
+
         for attr in self.sensitive_features:
             if attr not in sensitive_attrs.columns:
                 continue
             
             try:
-                # Demographic Parity
-                dp_diff = demographic_parity_difference(
-                    y_true, y_pred, sensitive_features=sensitive_attrs[attr]
-                )
-                dp_ratio = demographic_parity_ratio(
-                    y_true, y_pred, sensitive_features=sensitive_attrs[attr]
-                )
+                # 1. Demographic Parity (Difference & Ratio)
+                dp_diff = demographic_parity_difference(y_true, y_pred, sensitive_features=sensitive_attrs[attr])
+                dp_ratio = demographic_parity_ratio(y_true, y_pred, sensitive_features=sensitive_attrs[attr])
                 
-                # Equalized Odds
-                eo_diff = equalized_odds_difference(
-                    y_true, y_pred, sensitive_features=sensitive_attrs[attr]
-                )
-                eo_ratio = equalized_odds_ratio(
-                    y_true, y_pred, sensitive_features=sensitive_attrs[attr]
-                )
+                # 2. Equalized Odds
+                eo_diff = equalized_odds_difference(y_true, y_pred, sensitive_features=sensitive_attrs[attr])
                 
-                # Equal Opportunity (manually calculated as TPR difference/ratio)
-                # Equal opportunity = True Positive Rate parity
-                tpr_frame = MetricFrame(
-                    metrics=true_positive_rate,
-                    y_true=y_true,
-                    y_pred=y_pred,
-                    sensitive_features=sensitive_attrs[attr]
-                )
-                eop_diff = tpr_frame.difference()
-                eop_ratio = tpr_frame.ratio()
+                # 3. Equal Opportunity (TPR Difference)
+                tpr_mf = MetricFrame(metrics=true_positive_rate, y_true=y_true, y_pred=y_pred, sensitive_features=sensitive_attrs[attr])
+                eop_diff = tpr_mf.difference()
+
+                # 4. Statistical Parity Difference (Same as DP Diff)
+                # 5. Disparate Impact (Same as DP Ratio)
                 
-                fairness_scores[f"{attr}_demographic_parity_diff"] = float(dp_diff)
-                fairness_scores[f"{attr}_demographic_parity_ratio"] = float(dp_ratio)
-                fairness_scores[f"{attr}_equalized_odds_diff"] = float(eo_diff)
-                fairness_scores[f"{attr}_equalized_odds_ratio"] = float(eo_ratio)
-                fairness_scores[f"{attr}_equal_opportunity_diff"] = float(eop_diff)
-                fairness_scores[f"{attr}_equal_opportunity_ratio"] = float(eop_ratio)
+                # 6. Average Odds Difference
+                fpr_mf = MetricFrame(metrics=false_positive_rate, y_true=y_true, y_pred=y_pred, sensitive_features=sensitive_attrs[attr])
+                avg_odds_diff = (tpr_mf.difference() + fpr_mf.difference()) / 2
+                
+                # 7. Predictive Parity (Precision Difference)
+                prec_mf = MetricFrame(metrics=lambda yt, yp: precision_score(yt, yp, zero_division=0), y_true=y_true, y_pred=y_pred, sensitive_features=sensitive_attrs[attr])
+                pred_parity_diff = prec_mf.difference()
+                
+                # 8. Error Rate Balance (Overall accuracy difference)
+                acc_mf = MetricFrame(metrics=accuracy_score, y_true=y_true, y_pred=y_pred, sensitive_features=sensitive_attrs[attr])
+                err_rate_bal = acc_mf.difference()
+
+                # 9. Individual Error Parities
+                fnr_mf = MetricFrame(metrics=false_negative_rate, y_true=y_true, y_pred=y_pred, sensitive_features=sensitive_attrs[attr])
+                tnr_mf = MetricFrame(metrics=true_negative_rate, y_true=y_true, y_pred=y_pred, sensitive_features=sensitive_attrs[attr])
+                
+                # 10. Negative Predictive Parity
+                npp_mf = MetricFrame(metrics=lambda yt, yp: precision_score(1-yt, 1-yp, zero_division=0), y_true=y_true, y_pred=y_pred, sensitive_features=sensitive_attrs[attr])
+                
+                # 11. Treatment Equality (Ratio of FN/FP)
+                def te_metric(yt, yp):
+                    tn, fp, fn, tp = confusion_matrix(yt, yp, labels=[0, 1]).ravel()
+                    return fn / fp if fp > 0 else 0
+                te_mf = MetricFrame(metrics=te_metric, y_true=y_true, y_pred=y_pred, sensitive_features=sensitive_attrs[attr])
+
+                # 12. Calibration
+                cal_score = 100.0
+                if y_prob is not None:
+                    # Calibration error (diff between mean prob and mean true)
+                    cal_mf = MetricFrame(metrics=lambda yt, yp: abs(np.mean(yt) - np.mean(yp)), y_true=y_true, y_pred=y_prob, sensitive_features=sensitive_attrs[attr])
+                    cal_score = diff_to_score(cal_mf.difference())
+
+                # Stocker les 16 métriques demandées (nommées explicitement)
+                # On stocke des scores de 0 à 100 (plus c'est haut, plus c'est fair)
+                fairness_scores.update({
+                    f"{attr}_demographic_parity": diff_to_score(dp_diff),
+                    f"{attr}_equal_opportunity": diff_to_score(eop_diff),
+                    f"{attr}_equalized_odds": diff_to_score(eo_diff),
+                    f"{attr}_predictive_parity": diff_to_score(pred_parity_diff),
+                    f"{attr}_calibration": cal_score,
+                    f"{attr}_statistical_parity_difference": diff_to_score(dp_diff),
+                    f"{attr}_disparate_impact": dp_ratio * 100,
+                    f"{attr}_average_odds_difference": diff_to_score(avg_odds_diff),
+                    f"{attr}_error_rate_balance": diff_to_score(err_rate_bal),
+                    f"{attr}_false_positive_rate_parity": diff_to_score(fpr_mf.difference()),
+                    f"{attr}_false_negative_rate_parity": diff_to_score(fnr_mf.difference()),
+                    f"{attr}_true_positive_rate_parity": diff_to_score(tpr_mf.difference()),
+                    f"{attr}_true_negative_rate_parity": diff_to_score(tnr_mf.difference()),
+                    f"{attr}_positive_predictive_parity": diff_to_score(prec_mf.difference()),
+                    f"{attr}_negative_predictive_parity": diff_to_score(npp_mf.difference()),
+                    f"{attr}_treatment_equality": diff_to_score(te_mf.difference())
+                })
                 
             except Exception as e:
                 print(f"Error calculating fairness scores for {attr}: {e}")

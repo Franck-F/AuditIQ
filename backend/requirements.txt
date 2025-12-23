@@ -52,3 +52,6 @@ aiohttp>=3.9.0
 # Optional ML libraries (to fix warnings)
 xgboost>=2.0.0
 shap>=0.44.0
+
+# Storage
+supabase>=2.10.0

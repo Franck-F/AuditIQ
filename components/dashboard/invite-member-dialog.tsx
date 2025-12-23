@@ -25,9 +25,10 @@ import { Badge } from '@/components/ui/badge'
 
 interface InviteMemberDialogProps {
   trigger?: React.ReactNode
+  onSuccess?: () => void
 }
 
-export function InviteMemberDialog({ trigger }: InviteMemberDialogProps) {
+export function InviteMemberDialog({ trigger, onSuccess }: InviteMemberDialogProps) {
   const [open, setOpen] = useState(false)
   const [email, setEmail] = useState('')
   const [role, setRole] = useState('reader')
@@ -57,6 +58,7 @@ export function InviteMemberDialog({ trigger }: InviteMemberDialogProps) {
       setOpen(false)
       setEmail('')
       setRole('reader')
+      if (onSuccess) onSuccess()
     } catch (error) {
       console.error('Failed to invite member:', error)
       // Idéalement afficher un toast d'erreur ici, mais le composant parent gère les membres
