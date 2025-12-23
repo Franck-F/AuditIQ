@@ -55,7 +55,24 @@ export default function AuditDetailPage({ params }: { params: Promise<{ id: stri
               </p>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" className="gap-2">
+              <Button 
+                variant="outline" 
+                className="gap-2"
+                onClick={async () => {
+                  try {
+                    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/reports/generate/${id}`, {
+                      credentials: 'include'
+                    })
+                    if (response.ok) {
+                      const data = await response.json()
+                      // Télécharger le PDF
+                      window.open(`${process.env.NEXT_PUBLIC_API_URL}/reports/${id}/download`, '_blank')
+                    }
+                  } catch (error) {
+                    console.error('Erreur génération PDF:', error)
+                  }
+                }}
+              >
                 <Download className="h-4 w-4" />
                 Rapport PDF
               </Button>
@@ -585,7 +602,26 @@ function RecommendationCard({
         </div>
       </div>
 
-      <Button variant="outline" size="sm" className="w-full gap-2">
+      <Button 
+        variant="outline" 
+        size="sm" 
+        className="w-full gap-2"
+        onClick={() => {
+          // Générer le code Python pour cette recommandation
+          const pythonCode = `# Recommandation: ${title}\n# ${description}\n\nimport pandas as pd\nfrom fairlearn.reductions import ExponentiatedGradient, DemographicParity\nfrom sklearn.linear_model import LogisticRegression\n\n# Charger vos données\ndf = pd.read_csv('votre_dataset.csv')\n\n# Définir les colonnes\ntarget_column = 'votre_target'\nsensitive_column = 'votre_attribut_sensible'\n\n# Préparer les données\nX = df.drop(columns=[target_column, sensitive_column])\ny = df[target_column]\nsensitive_features = df[sensitive_column]\n\n# Appliquer la mitigation\nmitigator = ExponentiatedGradient(\n    LogisticRegression(),\n    constraints=DemographicParity()\n)\n\nmitigator.fit(X, y, sensitive_features=sensitive_features)\n\n# Prédictions avec mitigation\ny_pred = mitigator.predict(X)\n\nprint('Mitigation appliquée avec succès!')\n`
+          
+          // Télécharger le fichier
+          const blob = new Blob([pythonCode], { type: 'text/plain' })
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = `mitigation_${title.toLowerCase().replace(/\s+/g, '_')}.py`
+          document.body.appendChild(a)
+          a.click()
+          document.body.removeChild(a)
+          URL.revokeObjectURL(url)
+        }}
+      >
         <Download className="h-4 w-4" />
         Télécharger le code Python
       </Button>

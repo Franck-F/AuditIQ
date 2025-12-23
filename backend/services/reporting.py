@@ -1,16 +1,27 @@
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import inch
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any
 
+# Essayer d'importer ReportLab, sinon utiliser fallback texte
+try:
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import inch
+    REPORTLAB_AVAILABLE = True
+except ImportError:
+    REPORTLAB_AVAILABLE = False
+    print("Warning: ReportLab not installed. Using text fallback for reports.")
+
 def generate_audit_report(audit_data: Dict[str, Any], output_path: Path):
     """
-    Génère un rapport d'audit au format PDF
+    Génère un rapport d'audit au format PDF (ou TXT si ReportLab non disponible)
     """
+    if not REPORTLAB_AVAILABLE:
+        # Fallback: générer un rapport texte
+        return generate_text_report(audit_data, output_path)
+    
     doc = SimpleDocTemplate(
         str(output_path),
         pagesize=A4,
@@ -31,7 +42,7 @@ def generate_audit_report(audit_data: Dict[str, Any], output_path: Path):
     story.append(Spacer(1, 24))
     
     # --- Executive Summary ---
-    story.append(Paragraph("Résumé Exécutif", styles['Heading1']))
+    story.append(Paragraph("Ésumé Exécutif", styles['Heading1']))
     
     score = audit_data.get('score', 0)
     risk = audit_data.get('risk_level', 'Unknown')
@@ -95,4 +106,58 @@ def generate_audit_report(audit_data: Dict[str, Any], output_path: Path):
     story.append(Paragraph("Généré par Audit-IQ", styles['Center']))
     
     doc.build(story)
+    return output_path
+
+
+def generate_text_report(audit_data: Dict[str, Any], output_path: Path) -> Path:
+    """
+    Génère un rapport d'audit au format texte (fallback si ReportLab non disponible)
+    """
+    # Changer l'extension en .txt
+    output_path = output_path.with_suffix('.txt')
+    
+    score = audit_data.get('score', 0)
+    risk = audit_data.get('risk_level', 'Unknown')
+    status = audit_data.get('status', 'Unknown')
+    name = audit_data.get('name', 'Sans nom')
+    
+    content = f"""========================================
+RAPPORT D'AUDIT DE FAIRNESS
+========================================
+
+Audit: {name}
+Date: {datetime.now().strftime('%d/%m/%Y %H:%M')}
+
+========================================
+RÉSUMÉ EXÉCUTIF
+========================================
+
+Score Global: {score:.1f}/100
+Niveau de Risque: {risk}
+Statut: {status}
+
+========================================
+DÉTAILS DES MÉTRIQUES
+========================================
+
+"""
+    
+    results = audit_data.get('results', {})
+    if results:
+        if isinstance(results, dict):
+            for key, value in results.items():
+                content += f"\n{key}: {value}\n"
+        else:
+            content += f"\nRésultats: {results}\n"
+    else:
+        content += "\nAucun résultat détaillé disponible.\n"
+    
+    content += "\n========================================\n"
+    content += "Généré par Audit-IQ\n"
+    content += "========================================\n"
+    
+    # Écrire le fichier
+    with open(output_path, 'w', encoding='utf-8') as f:
+        f.write(content)
+    
     return output_path

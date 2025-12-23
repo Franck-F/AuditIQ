@@ -23,18 +23,15 @@ export const reportService = {
   },
 
   generate: async (auditId: number, reportType: string = 'comprehensive'): Promise<Report> => {
-    const response = await fetch(`${API_URL}/reports/generate`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      credentials: 'include',
-      body: JSON.stringify({ 
-        audit_id: auditId,
-        report_type: reportType 
-      })
+    const response = await fetch(`${API_URL}/reports/generate/${auditId}`, {
+      method: 'GET',
+      credentials: 'include'
     })
-    if (!response.ok) throw new Error('Failed to generate report')
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('Report generation failed:', response.status, errorText)
+      throw new Error(`Failed to generate report: ${response.status} - ${errorText}`)
+    }
     return response.json()
   },
 
