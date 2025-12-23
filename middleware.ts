@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server'
 
 export function middleware(request: NextRequest) {
   // Check if the path starts with /dashboard
+  /*
   if (request.nextUrl.pathname.startsWith('/dashboard')) {
     // Check for the access_token cookie
     const token = request.cookies.get('access_token')
@@ -15,6 +16,7 @@ export function middleware(request: NextRequest) {
       return NextResponse.redirect(loginUrl)
     }
   }
+  */
 
   return NextResponse.next()
 }
