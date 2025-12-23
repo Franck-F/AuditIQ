@@ -29,6 +29,7 @@ scikit-learn
 tabulate
 openpyxl
 chardet
+plotly
 
 # Reporting
 reportlab

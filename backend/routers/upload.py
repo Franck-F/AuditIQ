@@ -12,6 +12,7 @@ import chardet
 import hashlib
 import io
 import os
+from pathlib import Path
 from utils.proxy_detection import (
     detect_proxy_variables,
     format_proxy_report,
@@ -22,6 +23,10 @@ from utils.anonymization import apply_anonymization, get_anonymization_methods
 from utils.missing_values import analyze_missing_values, handle_missing_values, get_all_strategies_info
 from services.supabase_storage import storage_service
 from services.dataset_service import dataset_service
+from models.user import User
+from models.dataset import Dataset, Audit
+from db import AsyncSessionLocal
+from auth_middleware import get_current_user
 
 router = APIRouter(prefix="/api/upload", tags=["upload"])
 
