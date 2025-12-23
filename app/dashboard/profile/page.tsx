@@ -12,6 +12,9 @@ import { Label } from '@/components/ui/label'
 import { useToast } from '@/hooks/use-toast'
 import { API_ENDPOINTS } from '@/lib/config/api'
 
+// Désactiver la génération statique pour cette page
+export const dynamic = 'force-dynamic'
+
 interface UserProfile {
   first_name: string
   last_name: string
@@ -185,7 +188,7 @@ export default function ProfilePage() {
             </p>
           </div>
 
-          {loadingProfile ? (
+          {loading ? (
             <Card className="p-6">
               <div className="flex items-center justify-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
