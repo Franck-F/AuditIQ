@@ -22,14 +22,19 @@ export default function OnboardingPage() {
   const progress = (step / 3) * 100
 
   async function handleComplete() {
-    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001'
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
     
     try {
       // Only update if user selected a use case
       if (useCase) {
-        const res = await fetch(`${API_URL}/user/onboarding?use_case=${useCase}&onboarding_completed=4`, {
-          method: 'POST',
+        const res = await fetch(`${API_URL}/api/settings/profile`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
           credentials: 'include', // Send cookies
+          body: JSON.stringify({
+            use_case: useCase,
+            onboarding_completed: 4
+          })
         })
 
         if (!res.ok) {

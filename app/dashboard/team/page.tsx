@@ -31,11 +31,13 @@ export default function TeamPage() {
     fetchTeamMembers()
   }, [])
 
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
   const fetchTeamMembers = async () => {
     setLoading(true)
     
     try {
-      const res = await fetch('/api/team/members', {
+      const res = await fetch(`${API_URL}/api/team/members`, {
         credentials: 'include'
       })
       

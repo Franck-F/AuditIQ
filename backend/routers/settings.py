@@ -28,7 +28,8 @@ class UpdateProfileRequest(BaseModel):
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
     language: Optional[str] = None
-
+    use_case: Optional[str] = None
+    onboarding_completed: Optional[int] = None
 
 class UpdateCompanyRequest(BaseModel):
     company_name: Optional[str] = None
@@ -105,7 +106,7 @@ async def update_profile_settings(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Cet email est déjà utilisé"
             )
-    
+
     # Mettre à jour les champs
     if data.first_name is not None:
         user.first_name = data.first_name
@@ -115,6 +116,10 @@ async def update_profile_settings(
         user.email = data.email
     if data.language is not None:
         user.language = data.language
+    if data.use_case is not None:
+        user.use_case = data.use_case
+    if data.onboarding_completed is not None:
+        user.onboarding_completed = data.onboarding_completed
     # Note: phone n'est pas encore dans la base de données
     
     await db.commit()

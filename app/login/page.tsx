@@ -40,7 +40,7 @@ export default function LoginPage() {
     const API_URL = (process.env.NEXT_PUBLIC_API_URL as string) || 'http://localhost:8000'
 
     try {
-      const res = await fetch(`${API_URL}/auth/login`, {
+      const res = await fetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -231,17 +231,19 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          {/* Social Login */}
+          {/* Social Login - Temporarily disabled until configured
           <div className="mt-6">
             <Button 
               variant="outline" 
               className="w-full h-12 bg-background border-border/60 hover:bg-accent"
               type="button"
+              disabled
             >
               <Mail className="mr-2 size-5" />
-              Continuer avec Google
+              Continuer avec Google (Bientôt disponible)
             </Button>
           </div>
+          */}
 
           {/* Sign Up Link */}
           <div className="text-center text-sm text-muted-foreground mt-8">

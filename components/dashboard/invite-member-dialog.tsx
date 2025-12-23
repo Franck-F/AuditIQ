@@ -35,15 +35,31 @@ export function InviteMemberDialog({ trigger }: InviteMemberDialogProps) {
 
   const handleInvite = async () => {
     setIsLoading(true)
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
     try {
-      // TODO: Call API endpoint
-      await new Promise((resolve) => setTimeout(resolve, 1000))
-      console.log('Inviting:', { email, role })
+      const res = await fetch(`${API_URL}/api/team/invite`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // Nécessaire pour l'authentification
+        body: JSON.stringify({
+          email,
+          role
+        })
+      })
+
+      if (!res.ok) {
+        throw new Error('Erreur lors de l\'invitation')
+      }
+
+      const data = await res.json()
+      console.log('Invite success:', data)
       setOpen(false)
       setEmail('')
       setRole('reader')
     } catch (error) {
       console.error('Failed to invite member:', error)
+      // Idéalement afficher un toast d'erreur ici, mais le composant parent gère les membres
     } finally {
       setIsLoading(false)
     }
