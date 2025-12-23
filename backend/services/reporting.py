@@ -4,7 +4,7 @@ import pandas as pd
 import io
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 
 # Essayer d'importer ReportLab, sinon utiliser fallback texte
 try:
