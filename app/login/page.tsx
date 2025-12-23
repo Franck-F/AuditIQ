@@ -29,6 +29,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const API_URL = (process.env.NEXT_PUBLIC_API_URL as string) || 'http://localhost:8000'
   const [isLocked, setIsLocked] = useState(false)
   const [isTyping, setIsTyping] = useState(false)
 
@@ -37,7 +38,7 @@ export default function LoginPage() {
     setError(null)
     setLoading(true)
 
-    const API_URL = (process.env.NEXT_PUBLIC_API_URL as string) || 'http://localhost:8000'
+
 
     try {
       const res = await fetch(`${API_URL}/api/auth/login`, {
@@ -231,19 +232,18 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          {/* Social Login - Temporarily disabled until configured
+          {/* Social Login */}
           <div className="mt-6">
             <Button 
               variant="outline" 
               className="w-full h-12 bg-background border-border/60 hover:bg-accent"
               type="button"
-              disabled
+              onClick={() => window.location.href = `${API_URL}/api/auth/google/login`}
             >
               <Mail className="mr-2 size-5" />
-              Continuer avec Google (Bientôt disponible)
+              Continuer avec Google
             </Button>
           </div>
-          */}
 
           {/* Sign Up Link */}
           <div className="text-center text-sm text-muted-foreground mt-8">

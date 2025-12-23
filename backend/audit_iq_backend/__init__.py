@@ -45,6 +45,10 @@ async def log_requests(request: StarletteRequest, call_next):
         print(f"❌ Login failed with 422 - Validation Error")
     return response
 
+# Session Middleware for OAuth
+from starlette.middleware.sessions import SessionMiddleware
+app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
+
 # CORS Configuration - Allow frontend origins
 # Default origins including the new Netlify deployment
 default_origins = [
@@ -73,7 +77,7 @@ app.add_middleware(
 )
 
 # Include routers for profile management
-from routers import team, profile, auth, settings, upload, connections, mapping, audits, reports, ai_chat, eda, fairness_enhanced, ml, migration
+from routers import team, profile, auth, settings, upload, connections, mapping, audits, reports, ai_chat, eda, fairness_enhanced, ml, migration, google_auth
 from routers import fairness_enhanced_advanced  # Advanced fairness analysis
 from routers import whatif  # What-If Tool
 app.include_router(auth.router)
@@ -92,7 +96,8 @@ app.include_router(reports.router)
 app.include_router(ai_chat.router)
 app.include_router(eda.router)  # Auto EDA module
 app.include_router(migration.router) # Migration util
-print("[OK] Routers auth, team, profile, settings, upload, connections, mapping, audits, fairness_enhanced, fairness_enhanced_advanced, whatif, reports, ai_chat, eda, migration inclus")
+app.include_router(google_auth.router)
+print("[OK] Routers auth, team, profile, settings, upload, connections, mapping, audits, fairness_enhanced, fairness_enhanced_advanced, whatif, reports, ai_chat, eda, migration, google_auth inclus")
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
